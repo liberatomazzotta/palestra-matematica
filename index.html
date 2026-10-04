@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Palestra di Matematica</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Patrick+Hand&family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="motore/stile.css">
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
+</head>
+<body>
+<div class="stage">
+  <div class="board">
+    <header class="top">
+      <div class="title">Palestra<span>!</span><small id="modeLabel"></small></div>
+      <div class="stats"><div>Punti <span class="score-num" id="score">0</span></div></div>
+    </header>
+    <div id="hudRow"></div>
+    <div class="panel" id="panel"></div>
+  </div>
+</div>
+
+<script src="config.js"></script>
+<script src="motore/motore.js"></script>
+<!-- Argomenti: per aggiungerne uno, crea un file in argomenti/ e aggiungi qui la riga -->
+<script src="argomenti/fattori-primi.js"></script>
+<script src="argomenti/mcd-mcm.js"></script>
+<script>Palestra.avvia();</script>
+</body>
+</html>

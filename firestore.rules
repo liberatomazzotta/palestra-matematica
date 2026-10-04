@@ -1,0 +1,36 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Stato della gara corrente: sessione, argomento, manche, orario di partenza.
+    // Senza login non si può distinguere in modo sicuro il docente dagli alunni:
+    // il codice docente nell'app è solo un filtro di interfaccia.
+    match /game/state {
+      allow read: if true;
+      allow write: if request.resource.data.keys().hasAll(['sessionId','topic','manche','startAt','duration','updatedAt'])
+                   && request.resource.data.sessionId is number
+                   && request.resource.data.topic is string
+                   && request.resource.data.manche is number
+                   && request.resource.data.duration is number;
+    }
+
+    // Punteggi: si possono solo creare (mai modificare né cancellare),
+    // con una forma dei dati controllata.
+    match /scores/{scoreId} {
+      allow read: if true;
+      allow create: if request.resource.data.keys().hasAll(['sessionId','topic','name','score','manche','ts'])
+                    && request.resource.data.sessionId is number
+                    && request.resource.data.topic is string
+                    && request.resource.data.name is string
+                    && request.resource.data.name.size() > 0
+                    && request.resource.data.name.size() <= 40
+                    && request.resource.data.score is number
+                    && request.resource.data.score >= 0
+                    && request.resource.data.score < 100000
+                    && request.resource.data.manche is number
+                    && request.resource.data.manche >= 1
+                    && request.resource.data.manche <= 3;
+      allow update, delete: if false;
+    }
+  }
+}
