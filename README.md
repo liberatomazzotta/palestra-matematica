@@ -67,6 +67,13 @@ tra una manche e l'altra, classifica della manche e classifica generale. I punte
 Costo: al massimo una scrittura ogni 8 secondi per alunno più un segnale ogni 40 secondi: circa 9.000 scritture per 30 alunni in 40 minuti
 (limite gratuito: 20.000 al giorno).
 
+## Cancellare i risultati
+
+Nel Pannello docente, sezione **Pulizia dati**: «Cancella i risultati di questa gara» (punteggi e dati live della gara corrente)
+oppure «Cancella tutti i risultati e le presenze» (tutte le gare e il mosaico). Chiede conferma e non si può annullare.
+Richiede le regole Firestore aggiornate (cancellazione consentita). Senza login non si può distinguere il docente dagli alunni:
+chi conosce l'app e sa usare gli strumenti del browser potrebbe cancellare i punteggi. Per una gara in classe è un rischio accettabile.
+
 ## Aggiungere un argomento
 
 1. Copia `argomenti/mcd-mcm.js` in un nuovo file (es. `argomenti/frazioni.js`).

@@ -30,11 +30,14 @@ service cloud.firestore {
                     && request.resource.data.manche is number
                     && request.resource.data.manche >= 1
                     && request.resource.data.manche <= 3;
-      allow update, delete: if false;
+      allow update: if false;
+      // Cancellazione consentita (pulsanti "Cancella" del Pannello docente). Senza login non si può
+      // distinguere il docente: in teoria chi conosce l'app potrebbe cancellare i punteggi.
+      allow delete: if true;
     }
 
     // Presenza degli alunni in allenamento (mosaico docente): un documento per alunno,
-    // sovrascritto. Nessuna cancellazione.
+    // sovrascritto; cancellabile dal Pannello docente.
     match /presence/{pid} {
       allow read: if true;
       allow create, update: if request.resource.data.keys().hasAll(['name','topic','correct','wrong','streak','recent','lastTs','active'])
@@ -49,7 +52,7 @@ service cloud.firestore {
                             && request.resource.data.recent.size() <= 6
                             && request.resource.data.lastTs is number
                             && request.resource.data.active is bool;
-      allow delete: if false;
+      allow delete: if true;
     }
 
     // Punteggio parziale durante la manche (vista "Gara live" del docente).
@@ -69,7 +72,7 @@ service cloud.firestore {
                             && request.resource.data.correct is number
                             && request.resource.data.wrong is number
                             && request.resource.data.lastTs is number;
-      allow delete: if false;
+      allow delete: if true;
     }
   }
 }

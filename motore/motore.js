@@ -899,6 +899,12 @@ function renderTeacherPanel(){
         <div class="board-note" id="tSubmitted"></div>
       </div>
       <div class="trow"><button class="ghostbtn" id="tPodium" disabled>Classifica finale (podio)</button></div>
+      <div class="tbox">
+        <div class="instr">Pulizia dati</div>
+        <div class="trow"><button class="ghostbtn" id="tDelGara" disabled>Cancella i risultati di questa gara</button></div>
+        <div class="trow"><button class="ghostbtn" id="tDelAll">Cancella tutti i risultati e le presenze</button></div>
+        <div class="board-note" id="tDelNote"></div>
+      </div>
       <div class="trow"><a class="ghostbtn" href="mosaico.html" target="_blank" rel="noopener" style="text-decoration:none;display:inline-block;">Mosaico alunni (allenamento) ↗</a></div>
       <p class="board-note err" id="tErr" style="display:none;"></p>
       <button class="ghostbtn" id="tBack">Torna al menu</button>
@@ -954,7 +960,43 @@ function renderTeacherPanel(){
     stopAll();
     renderFinalPodium(sid, renderTeacherPanel);
   });
+  const delNote = t => { const n = document.getElementById('tDelNote'); if(n){ n.className = 'board-note'; n.textContent = t; } };
+  const delErr = t => { const n = document.getElementById('tDelNote'); if(n){ n.className = 'board-note err'; n.textContent = t; } };
+  async function cancella(descr, queries){
+    if(!window.confirm(descr + '\n\nL\'operazione non si può annullare. Continuare?')) return;
+    delNote('Cancellazione in corso...');
+    try{
+      let tot = 0;
+      for(const q of queries) tot += await deleteAll(q);
+      delNote(tot ? `Cancellati ${tot} elementi.` : 'Non c\'era nulla da cancellare.');
+    }catch(e){ console.error(e); delErr('Cancellazione non riuscita: controlla connessione e regole Firestore (devono permettere la cancellazione).'); }
+  }
+  document.getElementById('tDelGara').addEventListener('click', () => {
+    const sid = ctx.sessionId; if(!sid) return;
+    cancella('Cancellare i punteggi e i dati live della gara corrente?', [
+      db.collection('scores').where('sessionId', '==', sid),
+      db.collection('live').where('sessionId', '==', sid)]);
+  });
+  document.getElementById('tDelAll').addEventListener('click', () => {
+    cancella('Cancellare TUTTI i punteggi di tutte le gare e tutte le presenze degli alunni?', [
+      db.collection('scores'), db.collection('live'), db.collection('presence')]);
+  });
   document.getElementById('tBack').addEventListener('click', renderMenu);
+}
+
+// Cancella tutti i documenti di una query, a gruppi (Firestore ammette al massimo 500 operazioni per gruppo).
+async function deleteAll(query){
+  let n = 0;
+  for(;;){
+    const snap = await query.limit(400).get();
+    if(snap.empty) break;
+    const batch = db.batch();
+    snap.docs.forEach(d => batch.delete(d.ref));
+    await batch.commit();
+    n += snap.size;
+    if(snap.size < 400) break;
+  }
+  return n;
 }
 
 function teacherLive(){
@@ -982,6 +1024,8 @@ function teacherLive(){
   });
   const pod = document.getElementById('tPodium');
   if(pod) pod.disabled = !t.sessionId;
+  const dg = document.getElementById('tDelGara');
+  if(dg) dg.disabled = !t.sessionId;
   const sub = document.getElementById('tSubmitted');
   if(sub){
     if(info.manche >= 1){
