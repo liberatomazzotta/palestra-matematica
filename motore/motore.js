@@ -132,6 +132,7 @@ function leaveTeacherFlow(){
 }
 function stopAll(){
   presStop();
+  liveStop();
   if(timerInterval){ clearInterval(timerInterval); timerInterval = null; }
   leaveGaraFlow();
   leaveTeacherFlow();
@@ -288,6 +289,37 @@ function presStop(silent){
   pres = null;
 }
 
+// ================= GARA LIVE (solo per il mosaico docente) =================
+// Durante la manche ogni dispositivo scrive il punteggio parziale in "live/<sessione>_<nome>"
+// (un documento sovrascritto, al più una scrittura ogni 5 s). Gli alunni non lo leggono.
+const LIVE_THROTTLE_MS = 5000;
+let live = null;
+function liveFlush(final){
+  if(!live || !db || !state) return;
+  if(live.timer){ clearTimeout(live.timer); live.timer = null; }
+  live.lastWrite = Date.now();
+  db.collection('live').doc(live.id).set({
+    sessionId: state.sessionId, manche: state.manche, name: state.name, score: state.score,
+    correct: state.correctCount, wrong: state.wrongCount, lastTs: Date.now(), done: !!final
+  }).catch(e => console.warn('live non scritto', e));
+}
+function liveStart(){
+  liveStop();
+  if(!db || !state) return;
+  live = { id: state.sessionId + '_' + presKey(state.name), lastWrite: 0, timer: null };
+  liveFlush(false);
+}
+function liveTouch(){
+  if(!live || live.timer) return;
+  live.timer = setTimeout(() => liveFlush(false), Math.max(0, LIVE_THROTTLE_MS - (Date.now() - live.lastWrite)));
+}
+function liveStop(final){
+  if(!live) return;
+  if(final) liveFlush(true);
+  if(live && live.timer) clearTimeout(live.timer);
+  live = null;
+}
+
 // ================= ESERCITAZIONE =================
 function startPratica(topicId){
   const inp = document.getElementById('nomeInput');
@@ -396,7 +428,7 @@ function makeCtx(cur){
       const bonus = speedBonus(cur.startTs, cur.q.tempo);
       state.score += base + bonus;
       state.correctCount += 1;
-      if(mode === 'pratica') presAnswer(true);
+      if(mode === 'pratica') presAnswer(true); else if(mode === 'gara') liveTouch();
       updateScore();
       showBonus(bonus > 0 ? `+${base + bonus} (bonus velocità)` : `+${base}`, false);
       setTimeout(() => { if(state && state.current === cur) nextQuestion(); }, 600);
@@ -405,7 +437,7 @@ function makeCtx(cur){
       if(cur.done || !state || state.over) return;
       state.score = Math.max(0, state.score - 3);
       state.wrongCount += 1;
-      if(mode === 'pratica') presAnswer(false);
+      if(mode === 'pratica') presAnswer(false); else if(mode === 'gara') liveTouch();
       updateScore();
       showBonus('-3', true);
       if(mode === 'pratica') showRule(html, !!avanza);
@@ -593,6 +625,7 @@ function beginGara(info, rk){
   setModeLabel(`manche ${info.manche} di ${N_MANCHES}`);
   renderHud('gara');
   updateGaraBar(info.duration, info.duration);
+  liveStart();
   nextQuestion();
 }
 
@@ -621,6 +654,7 @@ function rankTable(list, myKey, limit){
 async function finishManche(){
   if(!state || state.over || state.mode !== 'gara') return;
   state.over = true;
+  liveStop(true);
   const s = { sessionId: state.sessionId, topicId: state.topicId, name: state.name, score: state.score, manche: state.manche };
   const g = garaCtx;
   const bar = document.getElementById('timerBar');

@@ -51,5 +51,25 @@ service cloud.firestore {
                             && request.resource.data.active is bool;
       allow delete: if false;
     }
+
+    // Punteggio parziale durante la manche (vista "Gara live" del docente).
+    match /live/{lid} {
+      allow read: if true;
+      allow create, update: if request.resource.data.keys().hasAll(['sessionId','manche','name','score','correct','wrong','lastTs'])
+                            && request.resource.data.sessionId is number
+                            && request.resource.data.manche is number
+                            && request.resource.data.manche >= 1
+                            && request.resource.data.manche <= 3
+                            && request.resource.data.name is string
+                            && request.resource.data.name.size() > 0
+                            && request.resource.data.name.size() <= 40
+                            && request.resource.data.score is number
+                            && request.resource.data.score >= 0
+                            && request.resource.data.score < 100000
+                            && request.resource.data.correct is number
+                            && request.resource.data.wrong is number
+                            && request.resource.data.lastTs is number;
+      allow delete: if false;
+    }
   }
 }

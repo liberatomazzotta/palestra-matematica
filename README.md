@@ -61,6 +61,9 @@ Ogni alunno è un riquadro con percentuale di risposte giuste, giuste/errate, ul
 In alto compaiono gli alunni in difficoltà (3 errori di fila, oppure 4 errori nelle ultime 6 risposte), con bordo rosso.
 Serve il nome: in allenamento si deve scrivere Cognome e Nome. **Dopo l'aggiornamento ripubblica `firestore.rules`**
 (Console Firebase → Firestore → Regole), altrimenti il mosaico resta vuoto.
+**Vista Gara** (scheda in alto nella stessa pagina, si apre da sola quando parte una manche): durante la manche, classifica
+live solo sulla schermata del docente (gli alunni non la vedono) con punteggio, giuste/errate e totale provvisorio;
+tra una manche e l'altra, classifica della manche e classifica generale. I punteggi parziali si aggiornano ogni 5 secondi circa.
 Costo: al massimo una scrittura ogni 8 secondi per alunno più un segnale ogni 40 secondi: circa 9.000 scritture per 30 alunni in 40 minuti
 (limite gratuito: 20.000 al giorno).
 
