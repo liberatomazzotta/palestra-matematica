@@ -208,7 +208,7 @@ function drawMenu(){
       <div class="field">
         <label class="instr" for="nomeInput">Cognome e Nome</label>
         <input class="nameinput" id="nomeInput" maxlength="30" placeholder="Scrivi Cognome e Nome" autocomplete="off" value="${U.esc(nome)}">
-        <div class="board-note" id="nomeNote">Serve per allenamento e gara. Esempio: «Rossi Marco»</div>
+        <div class="board-note" id="nomeNote"></div>
       </div>`;
   const docente = '<button class="ghostbtn" id="teacherLink" style="margin-top:10px;opacity:0.75;">Pannello docente</button>';
   const indietro = '<button class="ghostbtn" id="backHome">← Indietro</button>';
