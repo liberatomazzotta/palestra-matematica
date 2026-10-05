@@ -218,7 +218,7 @@ function drawMenu(){
     const opzioni = ORDER.map(id => `<option value="${U.esc(id)}">${U.esc(TOPICS[id].titolo)}</option>`).join('');
     corpo = `
       <div class="section-title">Allenamento</div>
-      <div class="board-note">Nessun punteggio in classifica. Ogni errore ti spiega la regola.</div>
+      <div class="board-note">Nessun punteggio in classifica. Gli errori ti aiuteranno ad imparare.</div>
       ${ORDER.length ? `
       <label class="levelrow">Argomento
         <select class="sel" id="topicSel">${opzioni}</select>
@@ -241,7 +241,7 @@ function drawMenu(){
       <div class="section-title">Cosa vuoi fare oggi?</div>
       <div class="board-note">Scegli tra allenamento e gara.</div>
       <div class="choice-home">
-        <button class="homebtn" id="goAllenamento"><b>Allenamento</b><span>Esercitati con calma: ogni errore ti spiega la regola.</span></button>
+        <button class="homebtn" id="goAllenamento"><b>Allenamento</b><span>Esercitati con calma: gli errori ti aiuteranno ad imparare.</span></button>
         <button class="homebtn" id="goGara"><b>Gara</b><span>Sfida i compagni: 3 manches, classifica e podio.</span></button>
       </div>`;
   }
