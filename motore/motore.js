@@ -936,7 +936,7 @@ function renderTeacherPanel(){
         <div class="trow"><button class="ghostbtn" id="tDelAll">Cancella tutti i risultati e le presenze</button></div>
         <div class="board-note" id="tDelNote"></div>
       </div>
-      <div class="trow"><a class="ghostbtn" href="mosaico.html" target="_blank" rel="noopener" style="text-decoration:none;display:inline-block;">Mosaico alunni (allenamento) ↗</a></div>
+      <div class="trow"><a class="ghostbtn" href="mosaico.html" target="_blank" rel="noopener" style="text-decoration:none;display:inline-block;">Mosaico alunni e classifica live ↗</a></div>
       <p class="board-note err" id="tErr" style="display:none;"></p>
       <button class="ghostbtn" id="tBack">Torna al menu</button>
     </div>`;
