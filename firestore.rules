@@ -32,5 +32,24 @@ service cloud.firestore {
                     && request.resource.data.manche <= 3;
       allow update, delete: if false;
     }
+
+    // Presenza degli alunni in allenamento (mosaico docente): un documento per alunno,
+    // sovrascritto. Nessuna cancellazione.
+    match /presence/{pid} {
+      allow read: if true;
+      allow create, update: if request.resource.data.keys().hasAll(['name','topic','correct','wrong','streak','recent','lastTs','active'])
+                            && request.resource.data.name is string
+                            && request.resource.data.name.size() > 0
+                            && request.resource.data.name.size() <= 40
+                            && request.resource.data.topic is string
+                            && request.resource.data.correct is number
+                            && request.resource.data.wrong is number
+                            && request.resource.data.streak is number
+                            && request.resource.data.recent is string
+                            && request.resource.data.recent.size() <= 6
+                            && request.resource.data.lastTs is number
+                            && request.resource.data.active is bool;
+      allow delete: if false;
+    }
   }
 }

@@ -194,3 +194,32 @@ header.top{display:flex;align-items:center;justify-content:space-between;margin-
 }
 
 .foot{margin-top:18px;text-align:center;font-size:11.5px;color:var(--chalk-dim);opacity:.7;position:relative;z-index:1;}
+
+/* ---- Mosaico docente (mosaico.html) ---- */
+body.mosaic-page{background:var(--board);min-height:100vh;margin:0;}
+.mosaic-wrap{padding:22px 18px 8px;max-width:1500px;margin:0 auto;color:var(--chalk);font-family:var(--font-ui);}
+.mosaic-gate{max-width:360px;margin:12vh auto;text-align:center;display:flex;flex-direction:column;gap:12px;}
+.mosaic-head{display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:16px;}
+.mosaic-head h1,.mosaic-gate h1{font-family:var(--font-hand);font-size:34px;margin:0;font-weight:400;}
+.mbar{display:flex;gap:22px;font-size:17px;color:var(--chalk-dim);}
+.mbar b{color:var(--yellow);font-size:24px;}
+.mbar .warn b{color:var(--red);}
+.mgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px;}
+.mtile{background:var(--board-dark);border:2px solid rgba(242,240,230,0.1);border-radius:14px;padding:12px 14px;display:flex;flex-direction:column;gap:4px;}
+.mtile.help{border-color:var(--red);box-shadow:0 0 0 3px rgba(224,98,98,0.25);}
+.mtile.idle{border-color:var(--yellow);}
+.mtile.off{opacity:.4;}
+.mname{font-weight:800;font-size:16px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.mtopic{font-size:11.5px;color:var(--chalk-dim);}
+.macc{font-family:var(--font-hand);font-size:40px;line-height:1.05;color:var(--chalk);}
+.mtile.help .macc{color:var(--red);}
+.mcnt{font-size:13px;color:var(--chalk-dim);}
+.mcnt .g{color:var(--green);} .mcnt .r{color:var(--red);}
+.mdots{display:flex;gap:5px;align-items:center;min-height:14px;margin:2px 0;}
+.mdots i{width:12px;height:12px;border-radius:50%;display:inline-block;}
+.mdots i.ok{background:var(--green);} .mdots i.ko{background:var(--red);}
+.mdots .dim{opacity:.4;font-size:12px;}
+.mstate{font-size:12.5px;font-weight:700;}
+.mtile.help .mstate{color:var(--red);} .mtile.idle .mstate{color:var(--yellow);}
+.mlast{font-size:11px;color:var(--chalk-dim);opacity:.8;min-height:13px;}
+body.mosaic-page .foot{padding:10px 0 20px;}

@@ -131,6 +131,7 @@ function leaveTeacherFlow(){
   teacherCtx = null;
 }
 function stopAll(){
+  presStop();
   if(timerInterval){ clearInterval(timerInterval); timerInterval = null; }
   leaveGaraFlow();
   leaveTeacherFlow();
@@ -243,8 +244,62 @@ function renderMenu(){
   document.getElementById('teacherLink').addEventListener('click', () => renderTeacherGate());
 }
 
+// ================= PRESENZA (mosaico docente) =================
+// Durante l'allenamento ogni alunno scrive un solo documento "presence/<nome>",
+// sovrascritto: nessun accumulo. Le scritture sono ridotte (al più una ogni 8 s
+// più un battito ogni 40 s) per restare nel piano gratuito di Firestore.
+const PRES_THROTTLE_MS = 8000, PRES_BEAT_MS = 40000;
+let pres = null;
+function presKey(n){ return nameKey(n).replace(/\//g, '_').slice(0, 60); }
+function presFlush(){
+  if(!pres || !db) return;
+  if(pres.timer){ clearTimeout(pres.timer); pres.timer = null; }
+  pres.lastWrite = Date.now();
+  const lvl = state && state.fixedLevel ? state.fixedLevel : (state ? levelForCount(state.correctCount) : 1);
+  db.collection('presence').doc(pres.key).set({
+    name: pres.name, topic: pres.topicId, topicTitle: topicTitle(pres.topicId), level: lvl,
+    correct: pres.correct, wrong: pres.wrong, streak: pres.streak, recent: pres.recent,
+    startedAt: pres.startedAt, lastAnswerTs: pres.lastAnswerTs, lastTs: Date.now(), active: pres.active
+  }).catch(e => console.warn('presenza non scritta', e));
+}
+function presStart(name, topicId){
+  presStop(true);
+  if(!db || !name) return;
+  pres = { key: presKey(name), name: name.slice(0, 30), topicId, correct: 0, wrong: 0, streak: 0, recent: '',
+    startedAt: Date.now(), lastAnswerTs: 0, active: true, lastWrite: 0, timer: null, beat: null };
+  pres.beat = setInterval(presFlush, PRES_BEAT_MS);
+  presFlush();
+}
+function presAnswer(ok){
+  if(!pres) return;
+  if(ok){ pres.correct++; pres.streak = 0; } else { pres.wrong++; pres.streak++; }
+  pres.recent = (pres.recent + (ok ? '1' : '0')).slice(-6);
+  pres.lastAnswerTs = Date.now();
+  if(pres.timer) return;
+  const wait = Math.max(0, PRES_THROTTLE_MS - (Date.now() - pres.lastWrite));
+  pres.timer = setTimeout(presFlush, wait);
+}
+function presStop(silent){
+  if(!pres) return;
+  clearInterval(pres.beat);
+  if(pres.timer){ clearTimeout(pres.timer); pres.timer = null; }
+  pres.active = false;
+  if(!silent) presFlush();
+  pres = null;
+}
+
 // ================= ESERCITAZIONE =================
 function startPratica(topicId){
+  const inp = document.getElementById('nomeInput');
+  let nome = inp ? inp.value.trim() : '';
+  if(!inp){ try{ nome = localStorage.getItem('palestra_nome') || ''; }catch(e){} }
+  if(!nome){
+    const n = document.getElementById('nomeNote');
+    if(n){ n.className = 'board-note err'; n.textContent = 'Scrivi Cognome e Nome per iniziare.'; }
+    if(inp) inp.focus();
+    return;
+  }
+  try{ localStorage.setItem('palestra_nome', nome); }catch(e){}
   stopAll();
   if(!TOPICS[topicId]) return;
   state = {
@@ -257,6 +312,7 @@ function startPratica(topicId){
   setModeLabel(TOPICS[topicId].titolo);
   renderHud('pratica');
   timerInterval = setInterval(practiceTick, 1000);
+  presStart(nome, topicId);
   nextQuestion();
 }
 
@@ -274,6 +330,7 @@ function practiceTick(){
 function endPractice(){
   if(!state || state.over) return;
   state.over = true;
+  presStop();
   if(timerInterval){ clearInterval(timerInterval); timerInterval = null; }
   const m = String(Math.floor(state.elapsedSeconds / 60)).padStart(2, '0');
   const s = String(state.elapsedSeconds % 60).padStart(2, '0');
@@ -339,6 +396,7 @@ function makeCtx(cur){
       const bonus = speedBonus(cur.startTs, cur.q.tempo);
       state.score += base + bonus;
       state.correctCount += 1;
+      if(mode === 'pratica') presAnswer(true);
       updateScore();
       showBonus(bonus > 0 ? `+${base + bonus} (bonus velocità)` : `+${base}`, false);
       setTimeout(() => { if(state && state.current === cur) nextQuestion(); }, 600);
@@ -347,6 +405,7 @@ function makeCtx(cur){
       if(cur.done || !state || state.over) return;
       state.score = Math.max(0, state.score - 3);
       state.wrongCount += 1;
+      if(mode === 'pratica') presAnswer(false);
       updateScore();
       showBonus('-3', true);
       if(mode === 'pratica') showRule(html, !!avanza);
@@ -806,6 +865,7 @@ function renderTeacherPanel(){
         <div class="board-note" id="tSubmitted"></div>
       </div>
       <div class="trow"><button class="ghostbtn" id="tPodium" disabled>Classifica finale (podio)</button></div>
+      <div class="trow"><a class="ghostbtn" href="mosaico.html" target="_blank" rel="noopener" style="text-decoration:none;display:inline-block;">Mosaico alunni (allenamento) ↗</a></div>
       <p class="board-note err" id="tErr" style="display:none;"></p>
       <button class="ghostbtn" id="tBack">Torna al menu</button>
     </div>`;

@@ -54,6 +54,16 @@ Se i Chromebook della scuola bloccano `github.io`, usa **Firebase Hosting** (`we
    Il pannello mostra in tempo reale lo stato e quanti punteggi sono stati consegnati.
 4. Dopo la Manche 3: **Classifica finale (podio)** dal pannello (o dal pulsante che compare agli alunni).
 
+## Mosaico alunni (allenamento)
+
+Durante l'allenamento il docente può proiettare `mosaico.html` (link dal Pannello docente, oppure `…/palestra-matematica/mosaico.html`).
+Ogni alunno è un riquadro con percentuale di risposte giuste, giuste/errate, ultime 6 risposte (pallini verdi/rossi) e stato.
+In alto compaiono gli alunni in difficoltà (3 errori di fila, oppure 4 errori nelle ultime 6 risposte), con bordo rosso.
+Serve il nome: in allenamento si deve scrivere Cognome e Nome. **Dopo l'aggiornamento ripubblica `firestore.rules`**
+(Console Firebase → Firestore → Regole), altrimenti il mosaico resta vuoto.
+Costo: al massimo una scrittura ogni 8 secondi per alunno più un segnale ogni 40 secondi: circa 9.000 scritture per 30 alunni in 40 minuti
+(limite gratuito: 20.000 al giorno).
+
 ## Aggiungere un argomento
 
 1. Copia `argomenti/mcd-mcm.js` in un nuovo file (es. `argomenti/frazioni.js`).
