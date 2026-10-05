@@ -2,7 +2,7 @@
 
 App statica (HTML + JavaScript) per esercitarsi su un argomento e poi sfidarsi in una gara a 3 manches
 avviata dal docente. Non c'è nessun legame con le classi: gli alunni scrivono solo il proprio nome
-(es. «Marco R.»), quindi va bene anche per corsi di recupero con alunni di classi diverse.
+(Cognome e Nome, es. «Rossi Marco»), quindi va bene anche per corsi di recupero con alunni di classi diverse.
 
 - **Allenamento**: nessun punteggio in classifica, ogni errore mostra la risposta giusta e la regola.
   Il livello si può scegliere (progressivo, base, intermedio, avanzato, esperto).
@@ -68,7 +68,7 @@ Se i Chromebook della scuola bloccano `github.io`, usa **Firebase Hosting** (`we
 - **Il codice docente non è una vera sicurezza**: in un sito statico chi legge il codice sorgente lo vede.
   Per dei giochi in classe va bene. Se servissero dati sensibili (voti per alunno) servirebbe un login vero.
 - **Nomi**: la gara riconosce gli alunni dal nome scritto. Chi usa nomi diversi nelle tre manche viene
-  contato come persone diverse; due alunni con lo stesso nome si sommano. Meglio «Marco R.».
+  contato come persone diverse; due alunni con lo stesso nome si sommano. Meglio «Cognome Nome», sempre scritto allo stesso modo.
 - **Orologio dei dispositivi**: la partenza usa l'orologio di ogni dispositivo. Se uno è sfasato di
   qualche secondo, parte in anticipo o in ritardo rispetto agli altri.
 - **Piano gratuito Firestore**: 50.000 letture e 20.000 scritture al giorno. Una gara con 30 alunni usa

@@ -203,9 +203,9 @@ function renderMenu(){
   panel.innerHTML = `
     <div class="menu">
       <div class="field">
-        <label class="instr" for="nomeInput">Il tuo nome</label>
-        <input class="nameinput" id="nomeInput" maxlength="24" placeholder="Nome e iniziale del cognome" autocomplete="off" value="${U.esc(nome)}">
-        <div class="board-note" id="nomeNote">Serve per la gara. Esempio: «Marco R.»</div>
+        <label class="instr" for="nomeInput">Cognome e Nome</label>
+        <input class="nameinput" id="nomeInput" maxlength="30" placeholder="Scrivi Cognome e Nome" autocomplete="off" value="${U.esc(nome)}">
+        <div class="board-note" id="nomeNote">Serve per la gara. Esempio: «Rossi Marco»</div>
       </div>
 
       <div class="section-title">Allenamento</div>
@@ -233,7 +233,7 @@ function renderMenu(){
     if(!val){
       const n = document.getElementById('nomeNote');
       n.className = 'board-note err';
-      n.textContent = 'Scrivi il tuo nome per entrare in gara.';
+      n.textContent = 'Scrivi Cognome e Nome per entrare in gara.';
       input.focus();
       return;
     }
