@@ -48,7 +48,7 @@ Se i Chromebook della scuola bloccano `github.io`, usa **Firebase Hosting** (`we
 
 ## Uso in classe
 
-1. Alunni: aprono il link, scrivono il nome, scelgono **Esercitati** (argomento e livello).
+1. Alunni: aprono il link, scrivono Cognome e Nome, scelgono **Allenamento** (poi argomento da elenco a discesa e livello) oppure **Gara**.
 2. Pausa o fine riscaldamento: gli alunni premono **Entra in gara** e restano in attesa.
 3. Docente: **Pannello docente** → codice → scegli l'argomento → **Crea nuova gara** → **Avvia Manche 1**.
    Il pannello mostra in tempo reale lo stato e quanti punteggi sono stati consegnati.

@@ -242,3 +242,11 @@ body.mosaic-page .foot{padding:10px 0 20px;}
 .mcol .board-table{max-width:none;font-size:17px;}
 .board-table td.tot{color:var(--yellow);}
 @media (max-width:760px){.lrow{grid-template-columns:28px 1fr 60px;}.lbar,.lsub,.ltot{display:none;}}
+
+.subtitle{margin:-8px 0 14px;font-size:13.5px;color:var(--chalk-dim);font-style:italic;position:relative;z-index:1;}
+.choice-home{display:flex;flex-direction:column;gap:12px;width:100%;max-width:400px;}
+.homebtn{display:flex;flex-direction:column;gap:4px;text-align:left;padding:16px 18px;border-radius:14px;cursor:pointer;
+  background:var(--panel);color:var(--chalk);border:2px solid rgba(242,240,230,0.14);font-family:var(--font-ui);transition:transform .12s,border-color .12s;}
+.homebtn:hover,.homebtn:focus-visible{transform:translateY(-2px);border-color:var(--yellow);outline:none;}
+.homebtn b{font-family:var(--font-hand);font-weight:400;font-size:26px;color:var(--yellow);}
+.homebtn span{font-size:13px;color:var(--chalk-dim);}

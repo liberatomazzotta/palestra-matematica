@@ -185,7 +185,16 @@ function renderMsg(titolo, corpo, opts){
 }
 
 // ================= MENU =================
-function renderMenu(){
+let menuTopic = '';      // ultimo argomento scelto nel menu
+let menuView = 'home';   // 'home' | 'allenamento' | 'gara'
+function renderMenu(){ menuView = 'home'; drawMenu(); }
+function setMenuView(v){ 
+  // conserva il nome già scritto cambiando schermata
+  const inp = document.getElementById('nomeInput');
+  if(inp && inp.value.trim()){ try{ localStorage.setItem('palestra_nome', inp.value.trim()); }catch(e){} }
+  menuView = v; drawMenu();
+}
+function drawMenu(){
   stopAll();
   state = null;
   updateScore();
@@ -195,45 +204,67 @@ function renderMenu(){
   try{ nome = localStorage.getItem('palestra_nome') || ''; }catch(e){}
 
   const livelli = [['auto', 'Progressivo (consigliato)'], ['1', 'Base'], ['2', 'Intermedio'], ['3', 'Avanzato'], ['4', 'Esperto']];
-  const topicCards = ORDER.map(id => {
-    const t = TOPICS[id];
-    return `<div class="topic-card"><div><div class="mode-title">${U.esc(t.titolo)}</div>` +
-      `<div class="mode-desc">${U.esc(t.descrizione || '')}</div></div>` +
-      `<button class="startbtn alt small" data-topic="${U.esc(id)}">Esercitati</button></div>`;
-  }).join('');
-
-  panel.innerHTML = `
-    <div class="menu">
+  const campoNome = `
       <div class="field">
         <label class="instr" for="nomeInput">Cognome e Nome</label>
         <input class="nameinput" id="nomeInput" maxlength="30" placeholder="Scrivi Cognome e Nome" autocomplete="off" value="${U.esc(nome)}">
-        <div class="board-note" id="nomeNote">Serve per la gara. Esempio: «Rossi Marco»</div>
-      </div>
+        <div class="board-note" id="nomeNote">Serve per allenamento e gara. Esempio: «Rossi Marco»</div>
+      </div>`;
+  const docente = '<button class="ghostbtn" id="teacherLink" style="margin-top:10px;opacity:0.75;">Pannello docente</button>';
+  const indietro = '<button class="ghostbtn" id="backHome">← Indietro</button>';
+  let corpo;
 
+  if(menuView === 'allenamento'){
+    const opzioni = ORDER.map(id => `<option value="${U.esc(id)}">${U.esc(TOPICS[id].titolo)}</option>`).join('');
+    corpo = `
       <div class="section-title">Allenamento</div>
       <div class="board-note">Nessun punteggio in classifica. Ogni errore ti spiega la regola.</div>
+      ${ORDER.length ? `
+      <label class="levelrow">Argomento
+        <select class="sel" id="topicSel">${opzioni}</select>
+      </label>
+      <div class="board-note" id="topicDesc"></div>
       <label class="levelrow">Livello
         <select class="sel" id="livelloSel">${livelli.map(l => `<option value="${l[0]}"${String(praticaLivello) === l[0] ? ' selected' : ''}>${l[1]}</option>`).join('')}</select>
       </label>
-      <div class="topic-list">${topicCards || '<div class="empty-board">Nessun argomento installato.</div>'}</div>
-
+      <button class="startbtn" id="startPraticaBtn">Inizia l'allenamento</button>` : '<div class="empty-board">Nessun argomento installato.</div>'}
+      ${indietro}`;
+  } else if(menuView === 'gara'){
+    corpo = `
       <div class="section-title">Gara</div>
-      <div class="board-note">La avvia il docente per tutti insieme: 3 manches, classifica finale con podio.</div>
+      <div class="board-note">La avvia il docente per tutti insieme: 3 manches, classifica finale con podio. L'argomento lo sceglie il docente: lo vedrai appena entri.</div>
       ${configured() ? '' : '<div class="board-note err">Gara non configurata: manca la configurazione Firebase in config.js. L\'allenamento funziona comunque.</div>'}
       <button class="startbtn" id="joinGaraBtn" ${configured() ? '' : 'disabled'}>Entra in gara</button>
+      ${indietro}`;
+  } else {
+    corpo = `
+      <div class="section-title">Cosa vuoi fare oggi?</div>
+      <div class="board-note">Scegli tra allenamento e gara.</div>
+      <div class="choice-home">
+        <button class="homebtn" id="goAllenamento"><b>Allenamento</b><span>Esercitati con calma: ogni errore ti spiega la regola.</span></button>
+        <button class="homebtn" id="goGara"><b>Gara</b><span>Sfida i compagni: 3 manches, classifica e podio.</span></button>
+      </div>`;
+  }
 
-      <button class="ghostbtn" id="teacherLink" style="margin-top:10px;opacity:0.75;">Pannello docente</button>
-    </div>`;
+  panel.innerHTML = `<div class="menu">${campoNome}${corpo}${menuView === 'home' ? docente : ''}</div>`;
 
-  panel.querySelectorAll('[data-topic]').forEach(b => {
-    b.addEventListener('click', () => startPratica(b.getAttribute('data-topic')));
-  });
-  document.getElementById('livelloSel').addEventListener('change', e => { praticaLivello = e.target.value; });
-  document.getElementById('joinGaraBtn').addEventListener('click', () => {
-    const input = document.getElementById('nomeInput');
+  const q = id => document.getElementById(id);
+  if(q('goAllenamento')) q('goAllenamento').addEventListener('click', () => setMenuView('allenamento'));
+  if(q('goGara')) q('goGara').addEventListener('click', () => setMenuView('gara'));
+  if(q('backHome')) q('backHome').addEventListener('click', () => setMenuView('home'));
+  if(q('topicSel')){
+    const aggiorna = () => { const t = TOPICS[q('topicSel').value]; q('topicDesc').textContent = t ? (t.descrizione || '') : ''; };
+    if(menuTopic && TOPICS[menuTopic]) q('topicSel').value = menuTopic;
+    q('topicSel').addEventListener('change', () => { menuTopic = q('topicSel').value; aggiorna(); });
+    aggiorna();
+    q('startPraticaBtn').addEventListener('click', () => startPratica(q('topicSel').value));
+  }
+  if(q('livelloSel')) q('livelloSel').addEventListener('change', e => { praticaLivello = e.target.value; });
+  if(q('joinGaraBtn')) q('joinGaraBtn').addEventListener('click', () => {
+    const input = q('nomeInput');
     const val = input.value.trim();
     if(!val){
-      const n = document.getElementById('nomeNote');
+      const n = q('nomeNote');
       n.className = 'board-note err';
       n.textContent = 'Scrivi Cognome e Nome per entrare in gara.';
       input.focus();
@@ -242,7 +273,7 @@ function renderMenu(){
     try{ localStorage.setItem('palestra_nome', val); }catch(e){}
     entraInGara(val);
   });
-  document.getElementById('teacherLink').addEventListener('click', () => renderTeacherGate());
+  if(q('teacherLink')) q('teacherLink').addEventListener('click', () => renderTeacherGate());
 }
 
 // ================= PRESENZA (mosaico docente) =================
