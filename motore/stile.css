@@ -343,3 +343,4 @@ body.mosaic-page .foot{padding:10px 0 20px;}
 .mascot-tip .numinput{width:110px;font-size:18px;padding:6px 10px;}
 .mascot-tip .tip-msg{min-height:18px;margin-top:6px;font-size:13px;font-weight:700;}
 .mascot-tip .tip-msg.ok{color:var(--green);} .mascot-tip .tip-msg.ko{color:var(--pink);}
+.section-sub{margin-top:-6px;font-size:13.5px;font-style:italic;color:var(--chalk-dim);text-align:center;max-width:440px;line-height:1.45;}

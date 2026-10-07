@@ -352,7 +352,7 @@ function drawMenu(){
     const idG = ORDER.filter(id => TOPICS[id].guida);
     corpo = `
       <div class="section-title">Guidami</div>
-      <div class="board-note">Prima un ripasso di teoria, poi esercizi risolti passo dopo passo. Nessun punteggio, nessun tempo.</div>
+      <div class="section-sub">Prima un ripasso di teoria, poi esercizi risolti passo dopo passo. Nessun punteggio, nessun tempo.</div>
       ${idG.length ? `
       <label class="levelrow">Argomento
         <select class="sel" id="topicSelG">${idG.map(id => `<option value="${U.esc(id)}">${U.esc(TOPICS[id].titolo)}</option>`).join('')}</select>
@@ -363,7 +363,7 @@ function drawMenu(){
     const opzioni = ORDER.map(id => `<option value="${U.esc(id)}">${U.esc(TOPICS[id].titolo)}</option>`).join('');
     corpo = `
       <div class="section-title">Allenamento</div>
-      <div class="board-note">Nessun punteggio in classifica. Gli errori ti aiuteranno ad imparare.</div>
+      <div class="section-sub">Nessun punteggio in classifica. Gli errori ti aiuteranno ad imparare.</div>
       ${ORDER.length ? `
       <label class="levelrow">Argomento
         <select class="sel" id="topicSel">${opzioni}</select>
@@ -377,7 +377,7 @@ function drawMenu(){
   } else if(menuView === 'gara'){
     corpo = `
       <div class="section-title">Gara</div>
-      <div class="board-note">La avvia il docente per tutti insieme: 3 manches, classifica finale con podio. L'argomento lo sceglie il docente: lo vedrai appena entri.</div>
+      <div class="section-sub">La avvia il docente per tutti insieme: 3 manches, classifica finale con podio. L'argomento lo sceglie il docente: lo vedrai appena entri.</div>
       ${configured() ? '' : '<div class="board-note err">Gara non configurata: manca la configurazione Firebase in config.js. L\'allenamento funziona comunque.</div>'}
       <button class="startbtn" id="joinGaraBtn" ${configured() ? '' : 'disabled'}>Entra in gara</button>
       ${indietro}`;
@@ -396,7 +396,13 @@ function drawMenu(){
   // Cognome e Nome si chiede solo dopo la scelta, sotto il titolo della sezione
   let html;
   if(menuView === 'home') html = corpo + docente;
-  else { const k = corpo.indexOf('</div>') + 6; html = corpo.slice(0, k) + campoNome + corpo.slice(k); }
+  else {
+    // dopo titolo e sottotitolo
+    let k = corpo.indexOf('</div>') + 6;
+    const sub = corpo.indexOf('class="section-sub"');
+    if(sub > -1) k = corpo.indexOf('</div>', sub) + 6;
+    html = corpo.slice(0, k) + campoNome + corpo.slice(k);
+  }
   panel.innerHTML = `<div class="menu">${html}</div>`;
 
   const q = id => document.getElementById(id);
