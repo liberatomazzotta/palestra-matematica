@@ -266,7 +266,7 @@ function drawMenu(){
     const idG = ORDER.filter(id => TOPICS[id].guida);
     corpo = `
       <div class="section-title">Guidami</div>
-      <div class="board-note">Prima un ripasso di teoria, poi esercizi risolti passo dopo passo. Nessun punteggio, nessun tempo. Il docente vede a che punto sei.</div>
+      <div class="board-note">Prima un ripasso di teoria, poi esercizi risolti passo dopo passo. Nessun punteggio, nessun tempo.</div>
       ${idG.length ? `
       <label class="levelrow">Argomento
         <select class="sel" id="topicSelG">${idG.map(id => `<option value="${U.esc(id)}">${U.esc(TOPICS[id].titolo)}</option>`).join('')}</select>
