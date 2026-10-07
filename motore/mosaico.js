@@ -119,7 +119,8 @@ function renderAllenamento(){
     const ultima = d.lastAnswerTs ? 'ultima risposta ' + fa(now - d.lastAnswerTs) : 'nessuna risposta ancora';
     return `<div class="mtile${a.guida ? ' guida' : ''}${a.difficolta ? ' help' : ''}${!a.online ? ' off' : ''}${a.fermo && !a.difficolta ? ' idle' : ''}">
       <div class="mname">${esc(d.name)}</div>
-      <div class="mtopic">${esc(d.topicTitle || d.topic || '')} · ${a.guida ? 'Guidami' : 'livello ' + (d.level || 1)}</div>
+      <div class="mmode ${a.guida ? 'g' : 'a'}">${a.guida ? 'Guidami' : 'Allenamento · livello ' + (d.level || 1)}</div>
+      <div class="mtopic">${esc(d.topicTitle || d.topic || '')}</div>
       <div class="macc">${a.acc === null ? '—' : a.acc + '%'}</div>
       <div class="mcnt"><b class="g">${d.correct || 0}</b> giuste · <b class="r">${d.wrong || 0}</b> errate</div>
       ${a.guida ? `<div class="mpos">${d.passo > 0 ? 'Esercizio ' + (d.esercizio || 1) + ' · passo ' + d.passo + '/' + d.passiTot : 'Legge la teoria'}</div>` : ''}

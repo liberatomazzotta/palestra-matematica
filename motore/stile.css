@@ -289,3 +289,6 @@ body.mosaic-page .foot{padding:10px 0 20px;}
   .rtable .wk,.mweak,.rsub tr.rweak td{color:#b00 !important;}
 }
 .rip-badge{align-self:center;font-size:12px;font-weight:700;letter-spacing:.04em;color:var(--board);background:var(--yellow);padding:3px 10px;border-radius:999px;margin-bottom:4px;}
+.mmode{align-self:flex-start;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;padding:2px 8px;border-radius:999px;}
+.mmode.a{color:var(--green);border:1px solid var(--green);}
+.mmode.g{color:var(--blue);border:1px solid var(--blue);}
