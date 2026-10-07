@@ -294,3 +294,11 @@ body.mosaic-page .foot{padding:10px 0 20px;}
 .mmode.g{color:var(--blue);border:1px solid var(--blue);}
 .mascotte{display:block;width:100%;max-width:240px;height:auto;margin:0 auto 4px;}
 @media (max-height:700px){.mascotte{max-width:170px;}}
+/* animazione mascotte: il bilanciere scende e risale, il corpo si piega un poco */
+.mascotte .m-lift{animation:m-lift 2.6s ease-in-out infinite;}
+.mascotte .m-body{animation:m-body 2.6s ease-in-out infinite;transform-box:fill-box;transform-origin:50% 100%;}
+.mascotte .m-sweat{animation:m-sweat 2.6s ease-in-out infinite;}
+@keyframes m-lift{0%,15%{transform:translateY(0);}45%,60%{transform:translateY(16px);}90%,100%{transform:translateY(0);}}
+@keyframes m-body{0%,15%{transform:translateY(0) scale(1,1);}45%,60%{transform:translateY(5px) scale(1.04,.95);}90%,100%{transform:translateY(0) scale(1,1);}}
+@keyframes m-sweat{0%,30%{opacity:0;transform:translateY(-4px);}55%{opacity:1;transform:translateY(0);}100%{opacity:0;transform:translateY(8px);}}
+@media (prefers-reduced-motion: reduce){.mascotte .m-lift,.mascotte .m-body,.mascotte .m-sweat{animation:none;}}
