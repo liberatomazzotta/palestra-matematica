@@ -193,9 +193,26 @@ function renderMsg(titolo, corpo, opts){
   document.getElementById('msgBack').addEventListener('click', renderMenu);
 }
 
+const MASCOTTE_TIP = `
+  <div class="mascot-tip" id="mascotTip" hidden>
+    <div class="tip-title">Sfida la mascotte!</div>
+    <div class="tip-q" id="tipQ"></div>
+    <div class="tip-row">
+      <input class="nameinput numinput" id="tipIn" inputmode="numeric" autocomplete="off" placeholder="?">
+      <button class="startbtn small" id="tipOk">Ok</button>
+    </div>
+    <div class="tip-msg" id="tipMsg"></div>
+  </div>`;
 const MASCOTTE = `
-<svg class="mascotte" viewBox="0 0 260 170" role="img" aria-label="La mascotte della Palestra Matematica solleva un bilanciere con la radice quadrata e il pi greco">
+<svg class="mascotte lift" id="mascotSvg" tabindex="0" viewBox="0 0 260 170" role="img" aria-label="La mascotte della Palestra Matematica solleva un bilanciere con la radice quadrata e il pi greco">
   <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <g class="m-stars">
+      <text x="60" y="100" font-size="18" fill="var(--yellow)" stroke="none">✦</text>
+      <text x="190" y="96" font-size="14" fill="var(--yellow)" stroke="none">✦</text>
+      <text x="200" y="140" font-size="18" fill="var(--pink)" stroke="none">✦</text>
+      <text x="48" y="146" font-size="13" fill="var(--blue)" stroke="none">✦</text>
+    </g>
+    <g class="m-all">
     <g class="m-lift">
     <!-- bilanciere -->
     <line x1="34" y1="40" x2="226" y2="40" stroke="var(--chalk)" stroke-width="5"/>
@@ -226,12 +243,70 @@ const MASCOTTE = `
     <path d="M118 124 Q130 136 142 124" stroke="var(--board)" stroke-width="3.5"/>
     </g>
     <!-- gocce di sudore -->
+    </g>
     <g class="m-sweat">
     <path d="M178 116 q4 7 0 10 q-4 -3 0 -10" fill="var(--blue)" stroke="none"/>
     <path d="M84 120 q3 6 0 8 q-3 -2 0 -8" fill="var(--blue)" stroke="none"/>
     </g>
   </g>
 </svg>`;
+// ---------- Mascotte: enigma nel fumetto, festa se la risposta è giusta ----------
+function enigmaMascotte(){
+  const r = U.rand;
+  const tipi = [
+    () => { const n = r(2, 12), a = r(1, 9); return [`Penso un numero, lo raddoppio e aggiungo ${a}: ottengo ${2 * n + a}. Che numero ho pensato?`, n]; },
+    () => { const k = r(2, 12); return [`Quanto fa √${k * k}?`, k]; },
+    () => { for(;;){ const g = r(2, 6), x = r(2, 5), y = r(2, 5); if(x !== y && U.mcd(x, y) === 1) return [`Qual è il MCD di ${g * x} e ${g * y}?`, g]; } },
+    () => { const n = U.pick([10, 20, 30]); return [`Quanti numeri primi ci sono tra 1 e ${n}?`, { 10: 4, 20: 8, 30: 10 }[n]]; },
+    () => { const a = r(1, 9), d = r(2, 9); return [`Completa la sequenza: ${a}, ${a + d}, ${a + 2 * d}, ${a + 3 * d}, …`, a + 4 * d]; },
+    () => { const l = r(3, 15); return [`Un quadrato ha il perimetro di ${4 * l} cm. Quanti cm misura il lato?`, l]; },
+    () => { const n = r(3, 9); return [`Quanto fa ${n}² − ${n}?`, n * n - n]; },
+    () => { const a = r(2, 9), b = r(2, 9); return [`Qual è il mcm di ${a} e ${a * b}?`, a * b]; }
+  ];
+  const t = U.pick(tipi)();
+  return { testo: t[0], risposta: t[1] };
+}
+function attivaMascotte(){
+  const wrap = document.getElementById('mascotWrap');
+  const svg = document.getElementById('mascotSvg');
+  const tip = document.getElementById('mascotTip');
+  const inp = document.getElementById('tipIn'), ok = document.getElementById('tipOk');
+  const qEl = document.getElementById('tipQ'), msg = document.getElementById('tipMsg');
+  let enigma = null, tentativi = 0, chiudi = null;
+  function nuovo(){ enigma = enigmaMascotte(); tentativi = 0; qEl.textContent = enigma.testo; msg.textContent = ''; msg.className = 'tip-msg'; inp.value = ''; inp.disabled = false; ok.disabled = false; }
+  function apri(){ clearTimeout(chiudi); if(!enigma) nuovo(); tip.hidden = false; }
+  function chiudiPoi(ms){ clearTimeout(chiudi); chiudi = setTimeout(() => { if(document.activeElement !== inp) tip.hidden = true; }, ms); }
+  function festa(){
+    svg.classList.remove('lift', 'party'); void svg.getBoundingClientRect(); svg.classList.add('party');
+  }
+  function verifica(){
+    const v = inp.value.trim();
+    if(!/^\d+$/.test(v)){ inp.focus(); return; }
+    if(Number(v) === enigma.risposta){
+      msg.textContent = 'Esatto! Guarda come festeggia!'; msg.className = 'tip-msg ok';
+      inp.disabled = true; ok.disabled = true;
+      festa();
+      setTimeout(() => { inp.blur(); tip.hidden = true; enigma = null; }, 1600);
+    } else {
+      tentativi += 1;
+      if(tentativi >= 3){
+        msg.textContent = `La risposta era ${enigma.risposta}. Proviamo con un altro!`; msg.className = 'tip-msg ko';
+        setTimeout(() => { nuovo(); inp.focus(); }, 2200);
+      } else {
+        msg.textContent = 'Non proprio… riprova!'; msg.className = 'tip-msg ko';
+        inp.select();
+      }
+    }
+  }
+  wrap.addEventListener('mouseenter', apri);
+  wrap.addEventListener('mouseleave', () => chiudiPoi(500));
+  svg.addEventListener('click', () => { if(tip.hidden){ apri(); inp.focus(); } else tip.hidden = true; });
+  svg.addEventListener('keydown', e => { if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); apri(); inp.focus(); } });
+  inp.addEventListener('keydown', e => { if(e.key === 'Enter') verifica(); if(e.key === 'Escape'){ inp.blur(); tip.hidden = true; } });
+  inp.addEventListener('blur', () => { if(!wrap.matches(':hover')) chiudiPoi(300); });
+  ok.addEventListener('click', verifica);
+}
+
 // ================= MENU =================
 let menuTopic = '';      // ultimo argomento scelto nel menu
 let menuView = 'home';   // 'home' | 'guidami' | 'allenamento' | 'gara'
@@ -297,7 +372,7 @@ function drawMenu(){
       ${indietro}`;
   } else {
     corpo = `
-      ${MASCOTTE}
+      <div class="mascot-wrap" id="mascotWrap">${MASCOTTE}${MASCOTTE_TIP}</div>
       <div class="section-title">Cosa vuoi fare oggi?</div>
       <div class="board-note">Decidi come migliorare: esercizi guidati, allenamento o gara?</div>
       <div class="choice-home">
@@ -342,6 +417,7 @@ function drawMenu(){
     entraInGara(val);
   });
   if(q('teacherLink')) q('teacherLink').addEventListener('click', () => renderTeacherGate());
+  if(q('mascotWrap')) attivaMascotte();
 }
 
 // ================= PRESENZA (mosaico docente) =================
