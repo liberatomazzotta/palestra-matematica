@@ -259,7 +259,7 @@ function drawMenu(){
   } else {
     corpo = `
       <div class="section-title">Cosa vuoi fare oggi?</div>
-      <div class="board-note">Scegli tra esercizi guidati, allenamento e gara.</div>
+      <div class="board-note">Scegli tra esercizi guidati, allenamento o gara.</div>
       <div class="choice-home">
         <button class="homebtn" id="goGuida"><b>Guidami</b><span>Teoria ed esercizi risolti passo dopo passo.</span></button>
         <button class="homebtn" id="goAllenamento"><b>Allenamento</b><span>Esercitati con calma: gli errori ti aiuteranno ad imparare.</span></button>
