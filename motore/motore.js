@@ -732,8 +732,16 @@ function makeCtx(cur){
       showBonus(esito === 'superato' ? `+${base + bonus} · ripasso superato!` : bonus > 0 ? `+${base + bonus} (bonus velocità)` : `+${base}`, false);
       setTimeout(() => { if(state && state.current === cur) nextQuestion(); }, 600);
     },
-    errata(html, avanza){
+    errata(html, avanza, breve){
       if(cur.done || !state || state.over) return;
+      // Allenamento in autonomia: niente regola di teoria, solo l'esito e la risposta giusta
+      if(mode === 'pratica'){
+        const q = cur.q;
+        if(breve) html = breve;
+        else if(q.tipo === 'scelta') html = `<b>Sbagliato.</b> Risposta giusta: <b class="res">${q.opzioni[q.corretta]}</b>.`;
+        else if(q.tipo === 'numerica') html = `<b>Sbagliato.</b> Risposta giusta: <b class="res">${q.corretta}</b>.`;
+        else html = '<b>Sbagliato.</b> Riprova.';
+      }
       state.score = Math.max(0, state.score - 3);
       state.wrongCount += 1;
       if(mode === 'pratica') presAnswer(false, cur.q.categoria); else if(mode === 'gara') liveTouch();

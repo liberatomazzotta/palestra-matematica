@@ -111,7 +111,8 @@ function scomposizione(livello){
           const r = richiamo(resto, p);
           const suggerito = PRIMI.find(x => resto % x === 0);
           ctx.errata(`<b>${p} non va bene qui.</b> ${r.regola} ${r.calcolo} <span class="verdict">${r.verdetto}</span>` +
-            (suggerito ? `<span class="hint">Suggerimento: prova a dividere per <b>${suggerito}</b>.</span>` : ''), false);
+            (suggerito ? `<span class="hint">Suggerimento: prova a dividere per <b>${suggerito}</b>.</span>` : ''), false,
+            `<b>Sbagliato:</b> ${p} non divide ${resto}. Prova con un altro numero primo.`);
         }
       }
       disegna();

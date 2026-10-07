@@ -71,7 +71,7 @@ Costo: al massimo una scrittura ogni 8 secondi per alunno più un segnale ogni 4
 
 ## Allenamento mirato
 
-In allenamento, quando l'alunno sbaglia un tipo di esercizio (es. "Criterio del 3"), quel tipo torna come **ripasso** (etichetta gialla "Ripasso · …") dopo una domanda normale, finché non risponde giusto **2 volte di fila** a quel tipo. Se sbaglia di nuovo, il conteggio riparte. Con più tipi in sospeso, si parte da quello con più errori. A fine allenamento compare l'elenco dei tipi "ripassati e superati" e di quelli "da ripassare ancora". Non vale in gara.
+In allenamento l'alunno lavora in autonomia: dopo un errore vede solo "Sbagliato" e la risposta giusta, senza la regola di teoria (la teoria è in Guidami). Quando sbaglia un tipo di esercizio (es. "Criterio del 3"), quel tipo torna come **ripasso** (etichetta gialla "Ripasso · …") dopo una domanda normale, finché non risponde giusto **2 volte di fila** a quel tipo. Se sbaglia di nuovo, il conteggio riparte. Con più tipi in sospeso, si parte da quello con più errori. A fine allenamento compare l'elenco dei tipi "ripassati e superati" e di quelli "da ripassare ancora". Non vale in gara.
 
 Per un nuovo argomento basta che le domande abbiano `categoria`; facoltativamente l'argomento può offrire `generaDomandaDi(categoria, livello)` per generare subito una domanda di quel tipo (altrimenti il motore la cerca generando domande a caso).
 
