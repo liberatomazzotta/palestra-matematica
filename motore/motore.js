@@ -214,12 +214,14 @@ const MASCOTTE = `
     </g>
     <g class="m-all">
     <g class="m-lift">
+    <g class="m-bar">
     <!-- bilanciere -->
     <line x1="34" y1="40" x2="226" y2="40" stroke="var(--chalk)" stroke-width="5"/>
     <rect x="8" y="10" width="34" height="60" rx="8" fill="var(--board-dark)" stroke="var(--blue)" stroke-width="3"/>
     <text x="25" y="50" text-anchor="middle" font-family="var(--font-hand)" font-size="34" fill="var(--blue)" stroke="none">√</text>
     <rect x="218" y="10" width="38" height="60" rx="8" fill="var(--board-dark)" stroke="var(--pink)" stroke-width="3"/>
     <text x="237" y="52" text-anchor="middle" font-family="var(--font-hand)" font-size="36" fill="var(--pink)" stroke="none">π</text>
+    </g>
     <!-- braccia -->
     <path d="M100 98 Q84 72 92 42" stroke="var(--yellow)" stroke-width="7"/>
     <path d="M160 98 Q176 72 168 42" stroke="var(--yellow)" stroke-width="7"/>
@@ -266,6 +268,13 @@ function enigmaMascotte(){
   const t = U.pick(tipi)();
   return { testo: t[0], risposta: t[1] };
 }
+// Una festa diversa per ogni enigma risolto: si usano tutte (in ordine casuale) prima di ripeterne una
+const FESTE = ['f-salti', 'f-piroetta', 'f-girabilanciere', 'f-ballo', 'f-lancio', 'f-molla'];
+let codaFeste = [];
+function prossimaFesta(){
+  if(!codaFeste.length) codaFeste = U.shuffle ? U.shuffle(FESTE.slice()) : FESTE.slice().sort(() => Math.random() - 0.5);
+  return codaFeste.shift();
+}
 function attivaMascotte(){
   const wrap = document.getElementById('mascotWrap');
   const svg = document.getElementById('mascotSvg');
@@ -277,7 +286,9 @@ function attivaMascotte(){
   function apri(){ clearTimeout(chiudi); if(!enigma) nuovo(); tip.hidden = false; }
   function chiudiPoi(ms){ clearTimeout(chiudi); chiudi = setTimeout(() => { if(document.activeElement !== inp) tip.hidden = true; }, ms); }
   function festa(){
-    svg.classList.remove('lift', 'party'); void svg.getBoundingClientRect(); svg.classList.add('party');
+    const v = prossimaFesta();
+    svg.classList.remove('lift', 'party', ...FESTE); void svg.getBoundingClientRect();
+    svg.classList.add('party', v);
   }
   function verifica(){
     const v = inp.value.trim();
