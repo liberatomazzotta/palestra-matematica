@@ -193,6 +193,39 @@ function renderMsg(titolo, corpo, opts){
   document.getElementById('msgBack').addEventListener('click', renderMenu);
 }
 
+const MASCOTTE = `
+<svg class="mascotte" viewBox="0 0 260 170" role="img" aria-label="La mascotte della Palestra Matematica solleva un bilanciere con la radice quadrata e il MCD">
+  <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <!-- bilanciere -->
+    <line x1="34" y1="40" x2="226" y2="40" stroke="var(--chalk)" stroke-width="5"/>
+    <rect x="8" y="10" width="34" height="60" rx="8" fill="var(--board-dark)" stroke="var(--blue)" stroke-width="3"/>
+    <text x="25" y="50" text-anchor="middle" font-family="var(--font-hand)" font-size="34" fill="var(--blue)" stroke="none">√</text>
+    <rect x="218" y="10" width="38" height="60" rx="8" fill="var(--board-dark)" stroke="var(--pink)" stroke-width="3"/>
+    <text x="237" y="46" text-anchor="middle" font-family="var(--font-ui)" font-weight="800" font-size="12" fill="var(--pink)" stroke="none">MCD</text>
+    <!-- braccia -->
+    <path d="M100 98 Q84 72 92 42" stroke="var(--yellow)" stroke-width="7"/>
+    <path d="M160 98 Q176 72 168 42" stroke="var(--yellow)" stroke-width="7"/>
+    <circle cx="92" cy="40" r="7" fill="var(--yellow)" stroke="none"/>
+    <circle cx="168" cy="40" r="7" fill="var(--yellow)" stroke="none"/>
+    <!-- gambe -->
+    <path d="M114 148 L108 164 L96 164" stroke="var(--yellow)" stroke-width="7"/>
+    <path d="M146 148 L152 164 L164 164" stroke="var(--yellow)" stroke-width="7"/>
+    <!-- corpo -->
+    <circle cx="130" cy="112" r="40" fill="var(--yellow)" stroke="var(--chalk)" stroke-width="3"/>
+    <!-- fascia -->
+    <path d="M93 98 Q130 84 167 98" stroke="var(--pink)" stroke-width="7"/>
+    <path d="M167 98 l12 -6 M167 98 l13 4" stroke="var(--pink)" stroke-width="4"/>
+    <!-- occhi, guance, sorriso -->
+    <circle cx="117" cy="110" r="4.5" fill="var(--board)" stroke="none"/>
+    <circle cx="143" cy="110" r="4.5" fill="var(--board)" stroke="none"/>
+    <circle cx="108" cy="122" r="4" fill="var(--pink)" stroke="none" opacity=".55"/>
+    <circle cx="152" cy="122" r="4" fill="var(--pink)" stroke="none" opacity=".55"/>
+    <path d="M118 124 Q130 136 142 124" stroke="var(--board)" stroke-width="3.5"/>
+    <!-- gocce di sudore -->
+    <path d="M178 116 q4 7 0 10 q-4 -3 0 -10" fill="var(--blue)" stroke="none"/>
+    <path d="M84 120 q3 6 0 8 q-3 -2 0 -8" fill="var(--blue)" stroke="none"/>
+  </g>
+</svg>`;
 // ================= MENU =================
 let menuTopic = '';      // ultimo argomento scelto nel menu
 let menuView = 'home';   // 'home' | 'guidami' | 'allenamento' | 'gara'
@@ -258,6 +291,7 @@ function drawMenu(){
       ${indietro}`;
   } else {
     corpo = `
+      ${MASCOTTE}
       <div class="section-title">Cosa vuoi fare oggi?</div>
       <div class="board-note">Decidi come migliorare: esercizi guidati, allenamento o gara?</div>
       <div class="choice-home">
