@@ -22,6 +22,7 @@ motore/               menu, gara, podio, cruscotto docente
 argomenti/
   fattori-primi.js    fattori primi e criteri di divisibilità
   mcd-mcm.js          MCD e mcm
+  pitagora.js         Teorema di Pitagora (con figure disegnate in proporzione)
 ```
 
 ## Messa online (una volta sola, circa 15 minuti)

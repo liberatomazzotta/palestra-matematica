@@ -349,3 +349,8 @@ body.mosaic-page .foot{padding:10px 0 20px;}
 .menu .levelrow{margin:8px 0;}
 .menu .startbtn{margin-top:18px;}
 .menu #backHome{margin-top:12px;}
+/* figure negli esercizi */
+.fig{display:block;width:100%;max-width:260px;height:auto;margin:4px auto 10px;}
+.fig.big{max-width:240px;}
+.guide-theory .fig{max-width:200px;float:right;margin:0 0 8px 12px;}
+@media (max-width:560px){.guide-theory .fig{float:none;margin:0 auto 8px;}}
