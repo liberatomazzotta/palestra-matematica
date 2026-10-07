@@ -97,6 +97,10 @@ function initFirebase(){
   catch(e){ console.error(e); db = null; }
 }
 
+function setScoreVisible(v){
+  const el = document.querySelector('.top .stats');
+  if(el) el.style.display = v ? '' : 'none';
+}
 function updateScore(){ scoreEl.textContent = state ? state.score : 0; }
 function setModeLabel(t){ modeLabelEl.textContent = t || ''; }
 function nameKey(n){ return String(n || '').trim().replace(/\s+/g, ' ').toLowerCase(); }
@@ -133,6 +137,7 @@ function leaveTeacherFlow(){
   teacherCtx = null;
 }
 function stopAll(){
+  setScoreVisible(true);
   presStop();
   liveStop();
   if(timerInterval){ clearInterval(timerInterval); timerInterval = null; }
@@ -221,7 +226,7 @@ function drawMenu(){
     const idG = ORDER.filter(id => TOPICS[id].guida);
     corpo = `
       <div class="section-title">Guidami</div>
-      <div class="board-note">Prima un ripasso di teoria, poi esercizi risolti passo dopo passo. Nessun punteggio, nessun tempo.</div>
+      <div class="board-note">Prima un ripasso di teoria, poi esercizi risolti passo dopo passo. Nessun punteggio, nessun tempo. Il docente vede a che punto sei.</div>
       ${idG.length ? `
       <label class="levelrow">Argomento
         <select class="sel" id="topicSelG">${idG.map(id => `<option value="${U.esc(id)}">${U.esc(TOPICS[id].titolo)}</option>`).join('')}</select>
@@ -309,14 +314,16 @@ function presFlush(){
   db.collection('presence').doc(pres.key).set({
     name: pres.name, topic: pres.topicId, topicTitle: topicTitle(pres.topicId), level: lvl,
     correct: pres.correct, wrong: pres.wrong, streak: pres.streak, recent: pres.recent,
-    startedAt: pres.startedAt, lastAnswerTs: pres.lastAnswerTs, lastTs: Date.now(), active: pres.active
+    startedAt: pres.startedAt, lastAnswerTs: pres.lastAnswerTs, lastTs: Date.now(), active: pres.active,
+    modo: pres.modo, passo: pres.passo, passiTot: pres.passiTot, esercizio: pres.esercizio
   }).catch(e => console.warn('presenza non scritta', e));
 }
-function presStart(name, topicId){
+function presStart(name, topicId, modo){
   presStop(true);
   if(!db || !name) return;
   pres = { key: presKey(name), name: name.slice(0, 30), topicId, correct: 0, wrong: 0, streak: 0, recent: '',
-    startedAt: Date.now(), lastAnswerTs: 0, active: true, lastWrite: 0, timer: null, beat: null };
+    startedAt: Date.now(), lastAnswerTs: 0, active: true, lastWrite: 0, timer: null, beat: null,
+    modo: modo || 'pratica', passo: 0, passiTot: 0, esercizio: 0 };
   pres.beat = setInterval(presFlush, PRES_BEAT_MS);
   presFlush();
 }
@@ -328,6 +335,14 @@ function presAnswer(ok){
   if(pres.timer) return;
   const wait = Math.max(0, PRES_THROTTLE_MS - (Date.now() - pres.lastWrite));
   pres.timer = setTimeout(presFlush, wait);
+}
+// Guidami: aggiorna la posizione dell'alunno (passo 0 = sta leggendo la teoria)
+function presGuida(esercizio, passo, passiTot){
+  if(!pres) return;
+  pres.esercizio = esercizio; pres.passo = passo; pres.passiTot = passiTot;
+  if(passo > 0) pres.lastAnswerTs = Date.now();
+  if(pres.timer) return;
+  pres.timer = setTimeout(presFlush, Math.max(0, PRES_THROTTLE_MS - (Date.now() - pres.lastWrite)));
 }
 function presStop(silent){
   if(!pres) return;
@@ -553,11 +568,24 @@ function mostraNumerica(q, area, ctx){
 //   guida: { teoria: 'HTML', generaEsercizio(indice) -> { titolo, testo, passi:[...], conclusione } }
 //   passo: { testo, tipo:'scelta'|'numerica', opzioni, corretta, suggerimento, spiegazione }
 let guidaCtx = null;
-function startGuida(topicId){
+function startGuida(topicId, nomeNoto){
+  const inp = document.getElementById('nomeInput');
+  let nome = inp ? inp.value.trim() : (nomeNoto || '');
+  if(!inp && !nome){ try{ nome = localStorage.getItem('palestra_nome') || ''; }catch(e){} }
+  if(!nome){
+    const n = document.getElementById('nomeNote');
+    if(n){ n.className = 'board-note err'; n.textContent = 'Scrivi Cognome e Nome per iniziare.'; }
+    if(inp) inp.focus();
+    return;
+  }
+  try{ localStorage.setItem('palestra_nome', nome); }catch(e){}
   stopAll();
   const t = TOPICS[topicId];
   if(!t || !t.guida) return;
-  guidaCtx = { topicId, indice: 0 };
+  setScoreVisible(false);
+  presStart(nome, topicId, 'guida');
+  guidaCtx = { topicId, indice: 0, nome };
+  presGuida(0, 0, 0);
   setModeLabel(t.titolo + ' · Guidami');
   renderHud('none');
   panel.innerHTML = `
@@ -582,9 +610,11 @@ function guidaEsercizio(){
   g.indice += 1;
   let i = 0;
   const fatti = [];
+  presGuida(g.indice, 1, es.passi.length);
 
   function disegna(){
     const p = es.passi[i];
+    presGuida(g.indice, i + 1, es.passi.length);
     const sopra = fatti.map(h => `<div class="gstep done">${h}</div>`).join('');
     panel.innerHTML = `
       <div class="guide">
@@ -605,6 +635,7 @@ function guidaEsercizio(){
     });
     const ctx = {
       corretta(){
+        presAnswer(true);
         hintBtn.disabled = true;
         fatti.push(`<b>${i + 1}.</b> ${p.testo} <span class="verdict">${p.rispostaTesto || ''}</span>` +
           (p.spiegazione ? `<div class="gnote">${p.spiegazione}</div>` : ''));
@@ -615,6 +646,7 @@ function guidaEsercizio(){
         b.addEventListener('click', () => { i += 1; if(i < es.passi.length) disegna(); else conclusione(); });
       },
       errata(){
+        presAnswer(false);
         hintBox.innerHTML = `<b>Non ancora.</b> ${p.suggerimento || 'Rileggi la teoria e riprova.'}`;
         hintBox.style.display = 'block';
       }
@@ -623,6 +655,7 @@ function guidaEsercizio(){
   }
 
   function conclusione(){
+    presGuida(g.indice, es.passi.length, es.passi.length);
     const sopra = fatti.map(h => `<div class="gstep done">${h}</div>`).join('');
     panel.innerHTML = `
       <div class="guide">
@@ -638,7 +671,7 @@ function guidaEsercizio(){
         </div>
       </div>`;
     document.getElementById('gAltro').addEventListener('click', guidaEsercizio);
-    document.getElementById('gTeoria').addEventListener('click', () => startGuida(g.topicId));
+    document.getElementById('gTeoria').addEventListener('click', () => startGuida(g.topicId, g.nome));
     document.getElementById('gAllena').addEventListener('click', () => { menuTopic = g.topicId; setMenuView('allenamento'); });
     document.getElementById('gMenu').addEventListener('click', renderMenu);
   }

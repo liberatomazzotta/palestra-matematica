@@ -43,9 +43,10 @@ function analizza(d, now){
   const tot = (d.correct || 0) + (d.wrong || 0);
   const acc = tot ? Math.round((d.correct || 0) / tot * 100) : null;
   const difficolta = online && ((d.streak || 0) >= 3 || (rec.length >= 4 && erroriRecenti >= 4));
-  const fermo = online && (now - (d.lastAnswerTs || d.startedAt || now)) > FERMO_MS;
+  const guida = d.modo === 'guida';
+  const fermo = online && (!guida || d.passo > 0 ) && (now - (d.lastAnswerTs || d.startedAt || now)) > (guida ? 3 * FERMO_MS : FERMO_MS);
   const punteggio = (d.streak || 0) * 3 + erroriRecenti;   // più alto = più bisogno di aiuto
-  return { online, acc, tot, difficolta, fermo, punteggio, rec };
+  return { online, acc, tot, difficolta, fermo, punteggio, rec, guida };
 }
 function fa(ms){
   const s = Math.max(0, Math.round(ms / 1000));
@@ -69,18 +70,19 @@ function renderAllenamento(){
       : a.fermo ? 'Fermo da ' + fa(now - (d.lastAnswerTs || d.startedAt)).replace(' fa', '')
       : 'In corso';
     const ultima = d.lastAnswerTs ? 'ultima risposta ' + fa(now - d.lastAnswerTs) : 'nessuna risposta ancora';
-    return `<div class="mtile${a.difficolta ? ' help' : ''}${!a.online ? ' off' : ''}${a.fermo && !a.difficolta ? ' idle' : ''}">
+    return `<div class="mtile${a.guida ? ' guida' : ''}${a.difficolta ? ' help' : ''}${!a.online ? ' off' : ''}${a.fermo && !a.difficolta ? ' idle' : ''}">
       <div class="mname">${esc(d.name)}</div>
-      <div class="mtopic">${esc(d.topicTitle || d.topic || '')} · livello ${d.level || 1}</div>
+      <div class="mtopic">${esc(d.topicTitle || d.topic || '')} · ${a.guida ? 'Guidami' : 'livello ' + (d.level || 1)}</div>
       <div class="macc">${a.acc === null ? '—' : a.acc + '%'}</div>
       <div class="mcnt"><b class="g">${d.correct || 0}</b> giuste · <b class="r">${d.wrong || 0}</b> errate</div>
+      ${a.guida ? `<div class="mpos">${d.passo > 0 ? 'Esercizio ' + (d.esercizio || 1) + ' · passo ' + d.passo + '/' + d.passiTot : 'Legge la teoria'}</div>` : ''}
       <div class="mdots">${dots}</div>
       <div class="mstate">${esc(stato)}</div>
       <div class="mlast">${a.online ? ultima : ''}</div></div>`;
   }).join('');
   return {
     bar: `<span><b>${online}</b> collegati</span><span class="${aiuto ? 'warn' : ''}"><b>${aiuto}</b> in difficoltà</span>`,
-    body: `<div class="mgrid">${tiles || '<div class="empty-board">Nessun alunno in allenamento. Compaiono qui appena iniziano.</div>'}</div>`
+    body: `<div class="mgrid">${tiles || '<div class="empty-board">Nessun alunno in allenamento o in Guidami. Compaiono qui appena iniziano.</div>'}</div>`
   };
 }
 

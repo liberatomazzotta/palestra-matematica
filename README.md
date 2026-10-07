@@ -76,7 +76,7 @@ chi conosce l'app e sa usare gli strumenti del browser potrebbe cancellare i pun
 
 ## Guidami (percorso guidato)
 
-Terza voce della home, accanto ad Allenamento e Gara: l'alunno sceglie l'argomento, legge un ripasso di **teoria**, poi svolge esercizi **a passi** (ogni passo è una piccola domanda; si può riprovare senza penalità e il pulsante "Aiutami" mostra un suggerimento). Alla fine vede la soluzione completa e può passare a un altro esercizio o all'allenamento. Nessun punteggio, nessun tempo, nessun dato salvato su Firestore.
+Terza voce della home, accanto ad Allenamento e Gara: l'alunno sceglie l'argomento, legge un ripasso di **teoria**, poi svolge esercizi **a passi** (ogni passo è una piccola domanda; si può riprovare senza penalità e il pulsante "Aiutami" mostra un suggerimento). Alla fine vede la soluzione completa e può passare a un altro esercizio o all'allenamento. Nessun punteggio e nessun tempo. Gli alunni compaiono nel mosaico del docente (tessera con bordo blu: argomento, esercizio e passo, giuste/errate; "Legge la teoria" mentre sono sulla teoria). Usa lo stesso documento `presence` dell'allenamento, quindi non servono nuove rules e il costo in scritture è quello dell'allenamento.
 
 Per aggiungerlo a un argomento, nel file in `argomenti/` si aggiunge la proprietà `guida`:
 
