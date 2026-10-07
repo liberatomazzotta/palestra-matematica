@@ -1,4 +1,4 @@
-/* MOSAICO DOCENTE — pagina da proiettare (solo docente).
+/* CRUSCOTTO DOCENTE (file mosaico.html) — pagina da proiettare (solo docente).
  * Vista "Allenamento": riquadri degli alunni (collezione "presence"), in alto chi ha più bisogno di aiuto.
  * Vista "Gara": classifica live durante la manche (collezione "live"), tra una manche e l'altra
  * classifica della manche e generale (collezione "scores"). */
@@ -22,7 +22,7 @@ function esc(s){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&l
 function configured(){ return !!FB.apiKey && String(FB.apiKey).indexOf('INSERISCI') !== 0; }
 
 function gate(err){
-  root.innerHTML = `<div class="mosaic-gate"><h1>Mosaico alunni</h1>
+  root.innerHTML = `<div class="mosaic-gate"><h1>Cruscotto docente</h1>
     <p>Inserisci il codice docente.</p>
     <input type="password" class="nameinput" id="pin" placeholder="Codice" autocomplete="off">
     <button class="startbtn" id="go">Entra</button>
@@ -314,7 +314,7 @@ function render(force){
   if(effective === 'report' && !force && document.getElementById('mbody') && repDocs) return;
   const out = effective === 'gara' ? renderGara() : effective === 'report' ? renderReport() : renderAllenamento();
   if(!document.getElementById('mbody')){
-    root.innerHTML = `<div class="mosaic-head"><h1>Mosaico alunni</h1>
+    root.innerHTML = `<div class="mosaic-head"><h1>Cruscotto docente</h1>
       <div class="mtabs"><button data-v="allenamento" id="tabA">Allenamento</button><button data-v="gara" id="tabG">Gara</button><button data-v="report" id="tabR">Report</button></div>
       <div class="mbar" id="mbar"></div></div><div id="mbody"></div>`;
     root.querySelectorAll('.mtabs button').forEach(b => b.addEventListener('click', () => { view = b.getAttribute('data-v'); if(view === 'report') repDocs = null; render(true); }));
