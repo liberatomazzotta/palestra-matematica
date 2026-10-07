@@ -134,7 +134,7 @@ function renderAllenamento(){
       `<span class="chip">${esc(nomeCat(f.topic, f.cat))} · <b>${f.alunni}</b> ${f.alunni === 1 ? 'alunno' : 'alunni'}, ${f.ko} errori</span>`).join('')}</div>` : '';
   return {
     bar: `<span><b>${online}</b> collegati</span><span class="${aiuto ? 'warn' : ''}"><b>${aiuto}</b> in difficoltà</span>`,
-    body: banner + `<div class="mgrid">${tiles || '<div class="empty-board">Nessun alunno in allenamento o in Guidami. Compaiono qui appena iniziano.</div>'}</div>`
+    body: banner + `<div class="mgrid">${tiles || '<div class="empty-board">Nessun alunno in esercitazione (allenamento o Guidami). Compaiono qui appena iniziano.</div>'}</div>`
   };
 }
 
@@ -315,7 +315,7 @@ function render(force){
   const out = effective === 'gara' ? renderGara() : effective === 'report' ? renderReport() : renderAllenamento();
   if(!document.getElementById('mbody')){
     root.innerHTML = `<div class="mosaic-head"><h1>Vista alunni</h1>
-      <div class="mtabs"><button data-v="allenamento" id="tabA">Allenamento</button><button data-v="gara" id="tabG">Gara</button><button data-v="report" id="tabR">Report</button></div>
+      <div class="mtabs"><button data-v="allenamento" id="tabA" title="Allenamento e Guidami">Esercitazione</button><button data-v="gara" id="tabG">Gara</button><button data-v="report" id="tabR">Report</button></div>
       <div class="mbar" id="mbar"></div></div><div id="mbody"></div>`;
     root.querySelectorAll('.mtabs button').forEach(b => b.addEventListener('click', () => { view = b.getAttribute('data-v'); if(view === 'report') repDocs = null; render(true); }));
   }
