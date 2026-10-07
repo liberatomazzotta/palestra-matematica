@@ -74,7 +74,7 @@ function scomposizione(livello){
   const originale = numeroDaScomporre(livello);
   const fattori = Object.keys(U.fattorizza(originale)).reduce((a, p) => a + U.fattorizza(originale)[p], 0);
   return {
-    tipo: 'personalizzata', punti: 12, tempo: 2.5 * fattori,
+    tipo: 'personalizzata', punti: 12, tempo: 2.5 * fattori, categoria: 'scomp',
     mostra(cont, ctx){
       let resto = originale;
       const raccolti = [];
@@ -130,7 +130,7 @@ function veroFalso(livello){
   const vero = divisibile(n, k);
   const r = richiamo(n, k);
   return {
-    tipo: 'scelta', istruzione: 'Vero o falso?', punti: 8, tempo: 4,
+    tipo: 'scelta', istruzione: 'Vero o falso?', punti: 8, tempo: 4, categoria: 'crit-' + k,
     testo: `<span class="num">${n}</span> è divisibile per <span class="num">${k}</span>`,
     opzioni: ['VERO', 'FALSO'], corretta: vero ? 0 : 1,
     spiegazione: `${r.regola} ${r.calcolo} <span class="verdict">${r.verdetto}</span>`,
@@ -200,7 +200,7 @@ function esScomposizione(){
     spiegazione: `${N} = ${U.fattoriHtml(U.fattorizza(N))}`
   });
   return {
-    titolo: 'Scomponi in fattori primi',
+    titolo: 'Scomponi in fattori primi', categoria: 'scomp',
     testo: `Scomponi <span class="num">${N}</span> in fattori primi.`,
     passi, conclusione: `${N} = ${giusta} = ${U.fattoriHtml(U.fattorizza(N))}`
   };
@@ -238,7 +238,7 @@ function esCriterio(){
     }
   ];
   return {
-    titolo: `Divisibile per ${k}?`,
+    titolo: `Divisibile per ${k}?`, categoria: 'crit-' + k,
     testo: `Il numero <span class="num">${n}</span> è divisibile per <span class="num">${k}</span>?`,
     passi, conclusione: `${n} ${ok ? 'È' : 'NON è'} divisibile per ${k}.`
   };
@@ -248,6 +248,11 @@ Palestra.registraArgomento({
   id: 'fattori-primi',
   titolo: 'Fattori primi e divisibilità',
   descrizione: 'Scomposizione in fattori primi e criteri di divisibilità (2, 3, 4, 5, 9, 10, 11).',
+  categorie: {
+    'scomp': 'Scomposizione in fattori primi',
+    'crit-2': 'Criterio del 2', 'crit-3': 'Criterio del 3', 'crit-4': 'Criterio del 4', 'crit-5': 'Criterio del 5',
+    'crit-9': 'Criterio del 9', 'crit-10': 'Criterio del 10', 'crit-11': "Criterio dell'11"
+  },
   guida: { teoria: TEORIA_FP, generaEsercizio(indice){ return indice % 2 === 0 ? esScomposizione() : esCriterio(); } },
   generaDomanda(livello, indice){
     return indice % 3 === 2 ? veroFalso(livello) : scomposizione(livello);

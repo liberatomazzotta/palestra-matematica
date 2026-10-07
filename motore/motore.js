@@ -311,24 +311,59 @@ function presFlush(){
   if(pres.timer){ clearTimeout(pres.timer); pres.timer = null; }
   pres.lastWrite = Date.now();
   const lvl = state && state.fixedLevel ? state.fixedLevel : (state ? levelForCount(state.correctCount) : 1);
-  db.collection('presence').doc(pres.key).set({
+  const ora = Date.now();
+  // tempo di attività: si somma l'intervallo dall'ultima scrittura (max 90 s, per non contare le pause lunghe)
+  if(pres.lastFlushTs) presDelta().sec += Math.round(Math.min(90000, ora - pres.lastFlushTs) / 1000);
+  pres.lastFlushTs = pres.active ? ora : 0;
+  const inc = n => firebase.firestore.FieldValue.increment(n);
+  const giorno = {};
+  Object.keys(pres.delta).forEach(t => {
+    const d = pres.delta[t], o = {};
+    ['ok', 'ko', 'sec', 'guidati'].forEach(k => { if(d[k]) o[k] = inc(d[k]); });
+    const cat = {};
+    Object.keys(d.cat).forEach(c => {
+      const x = {}; if(d.cat[c].ok) x.ok = inc(d.cat[c].ok); if(d.cat[c].ko) x.ko = inc(d.cat[c].ko);
+      cat[c] = x;
+    });
+    if(Object.keys(cat).length) o.cat = cat;
+    if(Object.keys(o).length) giorno[t] = o;
+  });
+  pres.delta = {};
+  const extra = Object.keys(giorno).length ? { giorni: { [chiaveGiorno()]: giorno } } : {};
+  db.collection('presence').doc(pres.key).set(Object.assign({
     name: pres.name, topic: pres.topicId, topicTitle: topicTitle(pres.topicId), level: lvl,
     correct: pres.correct, wrong: pres.wrong, streak: pres.streak, recent: pres.recent,
     startedAt: pres.startedAt, lastAnswerTs: pres.lastAnswerTs, lastTs: Date.now(), active: pres.active,
     modo: pres.modo, passo: pres.passo, passiTot: pres.passiTot, esercizio: pres.esercizio
-  }).catch(e => console.warn('presenza non scritta', e));
+  }, extra), { merge: true }).catch(e => console.warn('presenza non scritta', e));
+}
+// Statistiche del giorno (per il report): presence.giorni.gAAAAMMGG.<argomento> = {ok, ko, sec, guidati, cat:{<categoria>:{ok,ko}}}
+// Si inviano solo gli incrementi, insieme alla normale scrittura di presenza: nessuna scrittura in più.
+function chiaveGiorno(){
+  const d = new Date();
+  return 'g' + d.getFullYear() + String(d.getMonth() + 1).padStart(2, '0') + String(d.getDate()).padStart(2, '0');
+}
+function presDelta(){
+  const t = pres.topicId;
+  return pres.delta[t] = pres.delta[t] || { ok: 0, ko: 0, sec: 0, guidati: 0, cat: {} };
 }
 function presStart(name, topicId, modo){
   presStop(true);
   if(!db || !name) return;
   pres = { key: presKey(name), name: name.slice(0, 30), topicId, correct: 0, wrong: 0, streak: 0, recent: '',
     startedAt: Date.now(), lastAnswerTs: 0, active: true, lastWrite: 0, timer: null, beat: null,
-    modo: modo || 'pratica', passo: 0, passiTot: 0, esercizio: 0 };
+    modo: modo || 'pratica', passo: 0, passiTot: 0, esercizio: 0, delta: {}, lastFlushTs: 0 };
   pres.beat = setInterval(presFlush, PRES_BEAT_MS);
   presFlush();
 }
-function presAnswer(ok){
+function presAnswer(ok, categoria){
   if(!pres) return;
+  const dl = presDelta();
+  dl[ok ? 'ok' : 'ko'] += 1;
+  if(categoria){
+    const c = dl.cat[categoria] = dl.cat[categoria] || { ok: 0, ko: 0 };
+    c[ok ? 'ok' : 'ko'] += 1;
+  }
   if(ok){ pres.correct++; pres.streak = 0; } else { pres.wrong++; pres.streak++; }
   pres.recent = (pres.recent + (ok ? '1' : '0')).slice(-6);
   pres.lastAnswerTs = Date.now();
@@ -492,7 +527,7 @@ function makeCtx(cur){
       const bonus = speedBonus(cur.startTs, cur.q.tempo);
       state.score += base + bonus;
       state.correctCount += 1;
-      if(mode === 'pratica') presAnswer(true); else if(mode === 'gara') liveTouch();
+      if(mode === 'pratica') presAnswer(true, cur.q.categoria); else if(mode === 'gara') liveTouch();
       updateScore();
       showBonus(bonus > 0 ? `+${base + bonus} (bonus velocità)` : `+${base}`, false);
       setTimeout(() => { if(state && state.current === cur) nextQuestion(); }, 600);
@@ -501,7 +536,7 @@ function makeCtx(cur){
       if(cur.done || !state || state.over) return;
       state.score = Math.max(0, state.score - 3);
       state.wrongCount += 1;
-      if(mode === 'pratica') presAnswer(false); else if(mode === 'gara') liveTouch();
+      if(mode === 'pratica') presAnswer(false, cur.q.categoria); else if(mode === 'gara') liveTouch();
       updateScore();
       showBonus('-3', true);
       if(mode === 'pratica') showRule(html, !!avanza);
@@ -629,13 +664,14 @@ function guidaEsercizio(){
       </div>`;
     const hintBox = document.getElementById('gHint');
     const hintBtn = document.getElementById('gHintBtn');
+    let sbagliato = false;   // per le statistiche conta solo il primo tentativo del passo
     hintBtn.addEventListener('click', () => {
       hintBox.innerHTML = p.suggerimento || 'Rileggi la teoria e prova di nuovo.';
       hintBox.style.display = 'block';
     });
     const ctx = {
       corretta(){
-        presAnswer(true);
+        if(!sbagliato) presAnswer(true, es.categoria);
         hintBtn.disabled = true;
         fatti.push(`<b>${i + 1}.</b> ${p.testo} <span class="verdict">${p.rispostaTesto || ''}</span>` +
           (p.spiegazione ? `<div class="gnote">${p.spiegazione}</div>` : ''));
@@ -646,7 +682,7 @@ function guidaEsercizio(){
         b.addEventListener('click', () => { i += 1; if(i < es.passi.length) disegna(); else conclusione(); });
       },
       errata(){
-        presAnswer(false);
+        if(!sbagliato){ sbagliato = true; presAnswer(false, es.categoria); }
         hintBox.innerHTML = `<b>Non ancora.</b> ${p.suggerimento || 'Rileggi la teoria e riprova.'}`;
         hintBox.style.display = 'block';
       }
@@ -655,6 +691,7 @@ function guidaEsercizio(){
   }
 
   function conclusione(){
+    if(pres) presDelta().guidati += 1;
     presGuida(g.indice, es.passi.length, es.passi.length);
     const sopra = fatti.map(h => `<div class="gstep done">${h}</div>`).join('');
     panel.innerHTML = `

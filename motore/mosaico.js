@@ -14,7 +14,7 @@ const root = document.getElementById('root');
 const docs = new Map();            // presence
 const liveDocs = new Map();        // live
 const scoreDocs = new Map();       // scores
-let view = null;                   // 'allenamento' | 'gara' (null = automatico)
+let view = null;                   // 'allenamento' | 'gara' | 'report' (null = automatico)
 let gameState = null, gameSid = null, lastRunKey = null;
 let unsubs = [], tick = null, dbRef = null;
 
@@ -55,6 +55,52 @@ function fa(ms){
   return m + ' min fa';
 }
 
+// ---- statistiche per categoria (scritte dagli alunni in presence.giorni) ----
+const ARG = (window.Palestra && window.Palestra._argomenti) || {};
+function oggiKey(d){
+  d = d || new Date();
+  return 'g' + d.getFullYear() + String(d.getMonth() + 1).padStart(2, '0') + String(d.getDate()).padStart(2, '0');
+}
+function nomeCat(topic, c){ return (ARG[topic] && ARG[topic].categorie && ARG[topic].categorie[c]) || c; }
+function nomeArg(topic, fallback){ return (ARG[topic] && ARG[topic].titolo) || fallback || topic; }
+// somma le statistiche di un alunno sui giorni scelti -> { topic: {ok, ko, sec, guidati, cat:{c:{ok,ko}}} }
+function sommaGiorni(d, giorni){
+  const out = {};
+  const g = d.giorni || {};
+  Object.keys(g).forEach(k => {
+    if(giorni && !giorni(k)) return;
+    Object.keys(g[k] || {}).forEach(t => {
+      const src = g[k][t] || {}, dst = out[t] = out[t] || { ok: 0, ko: 0, sec: 0, guidati: 0, cat: {} };
+      ['ok', 'ko', 'sec', 'guidati'].forEach(f => { dst[f] += src[f] || 0; });
+      Object.keys(src.cat || {}).forEach(c => {
+        const x = dst.cat[c] = dst.cat[c] || { ok: 0, ko: 0 };
+        x.ok += src.cat[c].ok || 0; x.ko += src.cat[c].ko || 0;
+      });
+    });
+  });
+  return out;
+}
+// categorie critiche: almeno 2 errori e almeno il 40% di errori
+function deboli(stat, max){
+  const list = [];
+  Object.keys(stat).forEach(t => Object.keys(stat[t].cat).forEach(c => {
+    const x = stat[t].cat[c], tot = x.ok + x.ko;
+    if(x.ko >= 2 && x.ko / tot >= 0.4) list.push({ topic: t, cat: c, ok: x.ok, ko: x.ko, perc: Math.round(x.ko / tot * 100) });
+  }));
+  list.sort((a, b) => b.ko - a.ko || b.perc - a.perc);
+  return max ? list.slice(0, max) : list;
+}
+function erroriClasse(entries){
+  // entries: [{name, stat}] -> per categoria: alunni coinvolti ed errori totali
+  const agg = {};
+  entries.forEach(({ stat }) => Object.keys(stat).forEach(t => Object.keys(stat[t].cat).forEach(c => {
+    const x = stat[t].cat[c];
+    const a = agg[t + '|' + c] = agg[t + '|' + c] || { topic: t, cat: c, ok: 0, ko: 0, alunni: 0 };
+    a.ok += x.ok; a.ko += x.ko; if(x.ko > 0) a.alunni += 1;
+  })));
+  return Object.values(agg).filter(a => a.ko >= 2).sort((a, b) => b.alunni - a.alunni || b.ko - a.ko);
+}
+
 function renderAllenamento(){
   const now = Date.now();
   const list = Array.from(docs.values()).map(d => ({ d, a: analizza(d, now) }));
@@ -69,6 +115,7 @@ function renderAllenamento(){
       : a.difficolta ? 'Ha bisogno di aiuto'
       : a.fermo ? 'Fermo da ' + fa(now - (d.lastAnswerTs || d.startedAt)).replace(' fa', '')
       : 'In corso';
+    const deb = deboli(sommaGiorni(d, k => k === oggiKey()), 1)[0];
     const ultima = d.lastAnswerTs ? 'ultima risposta ' + fa(now - d.lastAnswerTs) : 'nessuna risposta ancora';
     return `<div class="mtile${a.guida ? ' guida' : ''}${a.difficolta ? ' help' : ''}${!a.online ? ' off' : ''}${a.fermo && !a.difficolta ? ' idle' : ''}">
       <div class="mname">${esc(d.name)}</div>
@@ -77,12 +124,16 @@ function renderAllenamento(){
       <div class="mcnt"><b class="g">${d.correct || 0}</b> giuste · <b class="r">${d.wrong || 0}</b> errate</div>
       ${a.guida ? `<div class="mpos">${d.passo > 0 ? 'Esercizio ' + (d.esercizio || 1) + ' · passo ' + d.passo + '/' + d.passiTot : 'Legge la teoria'}</div>` : ''}
       <div class="mdots">${dots}</div>
+      ${deb ? `<div class="mweak">Punto debole: ${esc(nomeCat(deb.topic, deb.cat))}</div>` : ''}
       <div class="mstate">${esc(stato)}</div>
       <div class="mlast">${a.online ? ultima : ''}</div></div>`;
   }).join('');
+  const freq = erroriClasse(list.filter(x => x.a.online).map(x => ({ stat: sommaGiorni(x.d, k => k === oggiKey()) }))).slice(0, 4);
+  const banner = freq.length ? `<div class="mfreq"><b>Errori più frequenti oggi</b>${freq.map(f =>
+      `<span class="chip">${esc(nomeCat(f.topic, f.cat))} · <b>${f.alunni}</b> ${f.alunni === 1 ? 'alunno' : 'alunni'}, ${f.ko} errori</span>`).join('')}</div>` : '';
   return {
     bar: `<span><b>${online}</b> collegati</span><span class="${aiuto ? 'warn' : ''}"><b>${aiuto}</b> in difficoltà</span>`,
-    body: `<div class="mgrid">${tiles || '<div class="empty-board">Nessun alunno in allenamento o in Guidami. Compaiono qui appena iniziano.</div>'}</div>`
+    body: banner + `<div class="mgrid">${tiles || '<div class="empty-board">Nessun alunno in allenamento o in Guidami. Compaiono qui appena iniziano.</div>'}</div>`
   };
 }
 
@@ -158,20 +209,121 @@ function renderGara(){
   return { bar: `<span>${titolo} conclusa</span>`, body: `<div class="mcols">${tableManche(f.manche)}${tableGenerale()}</div>` };
 }
 
-function render(){
+// ---- Report per alunno ----
+let repDocs = null, repLoading = false, repPeriodo = 'oggi', repArg = '', repAperti = new Set();
+function caricaReport(){
+  if(repLoading) return;
+  repLoading = true;
+  dbRef.collection('presence').get().then(snap => {
+    repDocs = []; snap.forEach(x => repDocs.push(x.data()));
+    repLoading = false; render(true);
+  }).catch(e => { console.error(e); repLoading = false; repDocs = []; render(true); });
+}
+function filtroGiorni(){
+  if(repPeriodo === 'tutto') return null;
+  const n = repPeriodo === 'oggi' ? 1 : repPeriodo === '7' ? 7 : 30;
+  const ok = new Set();
+  for(let i = 0; i < n; i++){ const d = new Date(); d.setDate(d.getDate() - i); ok.add(oggiKey(d)); }
+  return k => ok.has(k);
+}
+function righeReport(){
+  const f = filtroGiorni();
+  return (repDocs || []).map(d => {
+    let stat = sommaGiorni(d, f);
+    if(repArg){ const s = {}; if(stat[repArg]) s[repArg] = stat[repArg]; stat = s; }
+    const t = { ok: 0, ko: 0, sec: 0, guidati: 0 };
+    Object.values(stat).forEach(x => { t.ok += x.ok; t.ko += x.ko; t.sec += x.sec; t.guidati += x.guidati; });
+    return { name: d.name, stat, t, deb: deboli(stat) };
+  }).filter(r => r.t.ok + r.t.ko + r.t.guidati > 0)
+    .sort((a, b) => String(a.name).localeCompare(String(b.name), 'it'));
+}
+function minuti(sec){ return sec < 60 ? (sec ? '< 1' : '0') : String(Math.round(sec / 60)); }
+function perc(ok, ko){ return ok + ko ? Math.round(ok / (ok + ko) * 100) + '%' : '—'; }
+function renderReport(){
+  if(!repDocs){ caricaReport(); return { bar: '', body: '<div class="empty-board">Carico i dati…</div>' }; }
+  const rows = righeReport();
+  const argomenti = {};
+  repDocs.forEach(d => Object.values(d.giorni || {}).forEach(g => Object.keys(g || {}).forEach(t => { argomenti[t] = 1; })));
+  const sel = (id, val, opts) => `<select class="sel" id="${id}">${opts.map(o => `<option value="${esc(o[0])}"${o[0] === val ? ' selected' : ''}>${esc(o[1])}</option>`).join('')}</select>`;
+  const filtri = `<div class="rfilters">
+    <label>Periodo ${sel('repPer', repPeriodo, [['oggi', 'Oggi'], ['7', 'Ultimi 7 giorni'], ['30', 'Ultimi 30 giorni'], ['tutto', 'Tutto']])}</label>
+    <label>Argomento ${sel('repArg', repArg, [['', 'Tutti']].concat(Object.keys(argomenti).map(t => [t, nomeArg(t)])))}</label>
+    <button class="ghostbtn small" id="repReload">Aggiorna</button>
+    <button class="ghostbtn small" id="repCsv">Scarica CSV</button>
+    <button class="ghostbtn small" id="repPrint">Stampa / PDF</button></div>`;
+  const classe = erroriClasse(rows).slice(0, 6);
+  const sintesi = classe.length ? `<div class="mfreq"><b>Punti deboli della classe</b>${classe.map(f =>
+    `<span class="chip">${esc(nomeCat(f.topic, f.cat))} · <b>${f.alunni}</b> alunni, ${perc(f.ok, f.ko)} corrette</span>`).join('')}</div>` : '';
+  const tr = rows.map((r, i) => {
+    const aperto = repAperti.has(r.name);
+    const det = aperto ? `<tr class="rdet"><td colspan="7">${Object.keys(r.stat).map(t => {
+      const cats = Object.keys(r.stat[t].cat).sort((a, b) => r.stat[t].cat[b].ko - r.stat[t].cat[a].ko);
+      return `<div class="rdtitle">${esc(nomeArg(t))} · ${minuti(r.stat[t].sec)} min${r.stat[t].guidati ? ' · ' + r.stat[t].guidati + ' esercizi guidati' : ''}</div>` +
+        (cats.length ? `<table class="board-table rsub"><thead><tr><th>Tipo di esercizio</th><th class="pts">Giuste</th><th class="pts">Errate</th><th class="pts">Corrette</th></tr></thead><tbody>` +
+        cats.map(c => { const x = r.stat[t].cat[c]; return `<tr${x.ko >= 2 && x.ko / (x.ok + x.ko) >= 0.4 ? ' class="rweak"' : ''}><td>${esc(nomeCat(t, c))}</td><td class="pts">${x.ok}</td><td class="pts">${x.ko}</td><td class="pts">${perc(x.ok, x.ko)}</td></tr>`; }).join('') +
+        '</tbody></table>' : '');
+    }).join('')}</td></tr>` : '';
+    return `<tr class="rrow" data-n="${esc(r.name)}"><td class="name">${aperto ? '▾' : '▸'} ${esc(r.name)}</td>
+      <td>${Object.keys(r.stat).map(t => esc(nomeArg(t))).join(', ')}</td>
+      <td class="pts">${minuti(r.t.sec)}</td><td class="pts">${r.t.ok + r.t.ko}</td><td class="pts">${perc(r.t.ok, r.t.ko)}</td>
+      <td class="pts">${r.t.guidati || '–'}</td>
+      <td>${r.deb.slice(0, 2).map(x => `<span class="wk">${esc(nomeCat(x.topic, x.cat))}</span>`).join(' ') || '<span class="dim">—</span>'}</td></tr>${det}`;
+  }).join('');
+  return {
+    bar: `<span><b>${rows.length}</b> alunni nel periodo</span>`,
+    body: filtri + sintesi + (rows.length
+      ? `<table class="board-table rtable"><thead><tr><th>Alunno</th><th>Argomenti</th><th class="pts">Minuti</th><th class="pts">Risposte</th><th class="pts">Corrette</th><th class="pts">Guidati</th><th>Punti deboli</th></tr></thead><tbody>${tr}</tbody></table>
+         <p class="board-note">Clicca su un alunno per il dettaglio. Contano allenamento e Guidami (in Guidami il primo tentativo di ogni passo); la gara è esclusa.</p>`
+      : '<div class="empty-board">Nessuna attività nel periodo scelto.</div>')
+  };
+}
+function bindReport(){
+  const q = id => document.getElementById(id);
+  if(!q('repPer')) return;
+  q('repPer').addEventListener('change', () => { repPeriodo = q('repPer').value; render(true); });
+  q('repArg').addEventListener('change', () => { repArg = q('repArg').value; render(true); });
+  q('repReload').addEventListener('click', () => { repDocs = null; render(true); });
+  q('repPrint').addEventListener('click', () => window.print());
+  q('repCsv').addEventListener('click', scaricaCsv);
+  document.querySelectorAll('.rrow').forEach(tr => tr.addEventListener('click', () => {
+    const n = tr.getAttribute('data-n');
+    if(repAperti.has(n)) repAperti.delete(n); else repAperti.add(n);
+    render(true);
+  }));
+}
+function scaricaCsv(){
+  const cell = v => { const s = String(v == null ? '' : v); return /[;"\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+  const righe = [['Alunno', 'Argomento', 'Tipo di esercizio', 'Giuste', 'Errate', '% corrette', 'Minuti', 'Esercizi guidati']];
+  righeReport().forEach(r => Object.keys(r.stat).forEach(t => {
+    const s = r.stat[t];
+    righe.push([r.name, nomeArg(t), 'TOTALE', s.ok, s.ko, perc(s.ok, s.ko), minuti(s.sec), s.guidati]);
+    Object.keys(s.cat).forEach(c => righe.push([r.name, nomeArg(t), nomeCat(t, c), s.cat[c].ok, s.cat[c].ko, perc(s.cat[c].ok, s.cat[c].ko), '', '']));
+  }));
+  const csv = '\ufeff' + righe.map(r => r.map(cell).join(';')).join('\r\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+  a.download = 'report-palestra-' + oggiKey().slice(1) + '.csv';
+  document.body.appendChild(a); a.click(); a.remove();
+}
+
+function render(force){
   const f = fase(gameState, Date.now());
   const effective = view || ((f.phase === 'countdown' || f.phase === 'running' || f.phase === 'finished') ? 'gara' : 'allenamento');
-  const out = effective === 'gara' ? renderGara() : renderAllenamento();
+  // il report non si ridisegna da solo (ha filtri e righe aperte): solo su richiesta
+  if(effective === 'report' && !force && document.getElementById('mbody') && repDocs) return;
+  const out = effective === 'gara' ? renderGara() : effective === 'report' ? renderReport() : renderAllenamento();
   if(!document.getElementById('mbody')){
     root.innerHTML = `<div class="mosaic-head"><h1>Mosaico alunni</h1>
-      <div class="mtabs"><button data-v="allenamento" id="tabA">Allenamento</button><button data-v="gara" id="tabG">Gara</button></div>
+      <div class="mtabs"><button data-v="allenamento" id="tabA">Allenamento</button><button data-v="gara" id="tabG">Gara</button><button data-v="report" id="tabR">Report</button></div>
       <div class="mbar" id="mbar"></div></div><div id="mbody"></div>`;
-    root.querySelectorAll('.mtabs button').forEach(b => b.addEventListener('click', () => { view = b.getAttribute('data-v'); render(); }));
+    root.querySelectorAll('.mtabs button').forEach(b => b.addEventListener('click', () => { view = b.getAttribute('data-v'); if(view === 'report') repDocs = null; render(true); }));
   }
   document.getElementById('tabA').classList.toggle('on', effective === 'allenamento');
   document.getElementById('tabG').classList.toggle('on', effective === 'gara');
+  document.getElementById('tabR').classList.toggle('on', effective === 'report');
   document.getElementById('mbar').innerHTML = out.bar;
   document.getElementById('mbody').innerHTML = out.body;
+  if(effective === 'report') bindReport();
 }
 
 function seguiSessione(sid){

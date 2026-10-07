@@ -262,3 +262,29 @@ body.mosaic-page .foot{padding:10px 0 20px;}
 .gnote{margin-top:4px;font-size:13px;color:var(--chalk-dim);}
 .mtile.guida{border-left:4px solid var(--blue);}
 .mpos{font-size:12.5px;color:var(--blue);font-weight:700;}
+
+/* ---- Errori frequenti e report ---- */
+.mweak{font-size:12px;color:var(--pink);font-weight:700;}
+.mfreq{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:0 0 14px;padding:10px 12px;border:1px solid rgba(217,119,107,0.4);border-radius:12px;background:rgba(217,119,107,0.08);font-size:13px;}
+.mfreq > b{color:var(--pink);margin-right:4px;}
+.mfreq .chip{padding:4px 10px;border-radius:999px;background:var(--board-dark);border:1px solid var(--line);}
+.rfilters{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:14px;font-size:13px;}
+.rfilters label{display:flex;gap:6px;align-items:center;}
+.rtable{width:100%;max-width:none;}
+.rtable td.name{white-space:nowrap;}
+.rtable .wk{white-space:nowrap;}
+.rtable td{vertical-align:top;font-size:13.5px;}
+.rrow{cursor:pointer;}
+.rrow:hover td{background:rgba(255,255,255,0.04);}
+.rtable .wk{display:inline-block;margin:1px 2px;padding:2px 8px;border-radius:999px;font-size:12px;color:var(--pink);border:1px solid rgba(217,119,107,0.5);}
+.rdet td{background:rgba(0,0,0,0.15);}
+.rdtitle{font-weight:700;color:var(--yellow);margin:6px 0 4px;}
+.rsub{width:100%;max-width:640px;margin-bottom:8px;}
+.rsub tr.rweak td{color:var(--pink);}
+@media print{
+  body{background:#fff !important;color:#000 !important;}
+  .mtabs,.rfilters,.foot,.mbar{display:none !important;}
+  .board-table,.board-table td,.board-table th{color:#000 !important;background:#fff !important;border-color:#999 !important;}
+  .mfreq,.mfreq .chip{background:#fff !important;color:#000 !important;}
+  .rtable .wk,.mweak,.rsub tr.rweak td{color:#b00 !important;}
+}

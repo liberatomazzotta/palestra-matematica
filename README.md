@@ -67,6 +67,14 @@ tra una manche e l'altra, classifica della manche e classifica generale. I punte
 Costo: al massimo una scrittura ogni 8 secondi per alunno più un segnale ogni 40 secondi: circa 9.000 scritture per 30 alunni in 40 minuti
 (limite gratuito: 20.000 al giorno).
 
+## Errori frequenti e report per alunno
+
+- **Mosaico → Allenamento**: in alto la fascia "Errori più frequenti oggi" (tipi di esercizio sbagliati da più alunni collegati); sulla tessera compare "Punto debole: …" quando un alunno ha almeno 2 errori e almeno il 40% di errori su un tipo di esercizio.
+- **Mosaico → Report**: una riga per alunno (argomenti, minuti, risposte, % corrette, esercizi guidati, punti deboli). Filtri per periodo (oggi, 7 giorni, 30 giorni, tutto) e argomento; clic su un alunno per il dettaglio per tipo di esercizio. "Scarica CSV" si apre con Excel o Fogli Google; "Stampa / PDF" per archiviare.
+- Contano allenamento e Guidami (in Guidami solo il primo tentativo di ogni passo). La gara è esclusa.
+- I dati stanno nello stesso documento `presence` di ogni alunno (campo `giorni`) e viaggiano con le scritture già esistenti: nessuna scrittura in più e nessuna modifica alle rules.
+- Attenzione: "Pulizia dati" → cancellare le presenze cancella anche lo storico del report. Scarica prima il CSV.
+
 ## Cancellare i risultati
 
 Nel Pannello docente, sezione **Pulizia dati**: «Cancella i risultati di questa gara» (punteggi e dati live della gara corrente)
@@ -101,6 +109,8 @@ guida: {
 Gli argomenti senza `guida` non compaiono nel menu di Guidami.
 
 ## Aggiungere un argomento
+
+Nota: la riga `<script src="argomenti/....js">` va aggiunta sia in `index.html` sia in `mosaico.html` (al mosaico servono titoli e nomi delle categorie). Per il report, ogni domanda può indicare `categoria: 'id'` e l'argomento l'elenco `categorie: { id: 'Nome leggibile' }`; negli esercizi di Guidami la `categoria` va sull'esercizio.
 
 1. Copia `argomenti/mcd-mcm.js` in un nuovo file (es. `argomenti/frazioni.js`).
 2. Cambia `id`, `titolo`, `descrizione` e scrivi `generaDomanda(livello, indice)`.

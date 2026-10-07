@@ -283,7 +283,7 @@ function esGuidato(tipo){
     spiegazione: `${U.fattoriHtml(giusta)} = ${ris}.`
   });
   return {
-    titolo: tipo === 'mcd' ? 'Calcola il MCD' : 'Calcola il mcm',
+    titolo: tipo === 'mcd' ? 'Calcola il MCD' : 'Calcola il mcm', categoria: 'calc-' + tipo,
     testo: `Calcola il <b>${tipo === 'mcd' ? 'MCD' : 'mcm'}</b> di <span class="num">${a}</span> e <span class="num">${b}</span>.`,
     passi, conclusione: `${tipo === 'mcd' ? 'MCD' : 'mcm'}(${a}, ${b}) = ${ris}`
   };
@@ -293,21 +293,31 @@ Palestra.registraArgomento({
   id: 'mcd-mcm',
   titolo: 'MCD e mcm',
   descrizione: 'Massimo comun divisore e minimo comune multiplo: calcolo, problemi e primi tra loro.',
+  categorie: {
+    'calc-mcd': 'Calcolo del MCD', 'calc-mcm': 'Calcolo del mcm',
+    'prob-mcd': 'Problemi con il MCD', 'prob-mcm': 'Problemi con il mcm',
+    'vf': 'Riconoscere MCD e mcm', 'coprimi': 'Numeri primi tra loro',
+    'div': 'Divisori comuni', 'mult': 'Multipli comuni'
+  },
   guida: { teoria: TEORIA_MM, generaEsercizio(indice){ return esGuidato(indice % 2 === 0 ? 'mcd' : 'mcm'); } },
   generaDomanda(livello, indice){
     const lista = ROTAZIONE[livello] || ROTAZIONE[1];
-    switch(lista[indice % lista.length]){
-      case 'div': return qDivisoreComune();
-      case 'mult': return qMultiploComune();
-      case 'mcd': return qCalcolo('mcd', numeri(livello));
-      case 'mcm': return qCalcolo('mcm', numeri(livello));
-      case 'mcd3': return qCalcolo('mcd', numeri(4));
-      case 'mcm3': return qCalcolo('mcm', numeri(4));
-      case 'vf': return qVeroFalsoMisura(livello);
-      case 'coprimi': return qCoprimi(livello);
-      case 'p-mcd': return qProblemaMCD(livello);
-      default: return qProblemaMCM();
+    const tipo = lista[indice % lista.length];
+    let q, cat;
+    switch(tipo){
+      case 'div': q = qDivisoreComune(); cat = 'div'; break;
+      case 'mult': q = qMultiploComune(); cat = 'mult'; break;
+      case 'mcd': q = qCalcolo('mcd', numeri(livello)); cat = 'calc-mcd'; break;
+      case 'mcm': q = qCalcolo('mcm', numeri(livello)); cat = 'calc-mcm'; break;
+      case 'mcd3': q = qCalcolo('mcd', numeri(4)); cat = 'calc-mcd'; break;
+      case 'mcm3': q = qCalcolo('mcm', numeri(4)); cat = 'calc-mcm'; break;
+      case 'vf': q = qVeroFalsoMisura(livello); cat = 'vf'; break;
+      case 'coprimi': q = qCoprimi(livello); cat = 'coprimi'; break;
+      case 'p-mcd': q = qProblemaMCD(livello); cat = 'prob-mcd'; break;
+      default: q = qProblemaMCM(); cat = 'prob-mcm';
     }
+    q.categoria = cat;
+    return q;
   }
 });
 })();

@@ -14,6 +14,13 @@
 <div class="mosaic-wrap" id="root"></div>
 <footer class="foot">Applicazione ideata da Liberato Mazzotta</footer>
 <script src="config.js"></script>
+<script>
+  // Il mosaico legge dagli argomenti solo titoli e nomi delle categorie (per il report).
+  window.Palestra = { utils: {}, _argomenti: {}, registraArgomento(t){ if(t && t.id) this._argomenti[t.id] = t; } };
+</script>
+<!-- Argomenti: stessa lista di index.html -->
+<script src="argomenti/fattori-primi.js"></script>
+<script src="argomenti/mcd-mcm.js"></script>
 <script src="motore/mosaico.js"></script>
 </body>
 </html>
