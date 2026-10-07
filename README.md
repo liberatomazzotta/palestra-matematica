@@ -74,6 +74,32 @@ oppure «Cancella tutti i risultati e le presenze» (tutte le gare e il mosaico)
 Richiede le regole Firestore aggiornate (cancellazione consentita). Senza login non si può distinguere il docente dagli alunni:
 chi conosce l'app e sa usare gli strumenti del browser potrebbe cancellare i punteggi. Per una gara in classe è un rischio accettabile.
 
+## Guidami (percorso guidato)
+
+Terza voce della home, accanto ad Allenamento e Gara: l'alunno sceglie l'argomento, legge un ripasso di **teoria**, poi svolge esercizi **a passi** (ogni passo è una piccola domanda; si può riprovare senza penalità e il pulsante "Aiutami" mostra un suggerimento). Alla fine vede la soluzione completa e può passare a un altro esercizio o all'allenamento. Nessun punteggio, nessun tempo, nessun dato salvato su Firestore.
+
+Per aggiungerlo a un argomento, nel file in `argomenti/` si aggiunge la proprietà `guida`:
+
+```js
+guida: {
+  teoria: '<p>Ripasso in HTML…</p>',
+  generaEsercizio(indice){
+    return {
+      titolo: 'Calcola il MCD',
+      testo: 'Testo dell\'esercizio (HTML)',
+      passi: [
+        { tipo: 'scelta', testo: '…', opzioni: ['a','b','c'], corretta: 1,
+          suggerimento: 'Aiuto mostrato su errore o su "Aiutami"', spiegazione: 'Commento dopo la risposta giusta' },
+        { tipo: 'numerica', testo: '…', corretta: 42, suggerimento: '…', spiegazione: '…' }
+      ],
+      conclusione: 'Risultato finale'
+    };
+  }
+}
+```
+
+Gli argomenti senza `guida` non compaiono nel menu di Guidami.
+
 ## Aggiungere un argomento
 
 1. Copia `argomenti/mcd-mcm.js` in un nuovo file (es. `argomenti/frazioni.js`).

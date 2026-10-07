@@ -202,10 +202,98 @@ const ROTAZIONE = {
   4: ['mcd3', 'mcm3', 'p-mcd', 'p-mcm', 'mcd3', 'mcm3']
 };
 
+
+// ---------- Guidami ----------
+const TEORIA_MM = `
+  <p><b>Scomposizione</b>: ogni numero si scrive come prodotto di fattori primi (es. 12 = 2² × 3).</p>
+  <p><b>MCD</b> (massimo comun divisore): il più grande numero che divide tutti i numeri dati.<br>
+  Si scompongono i numeri e si prendono i fattori <b>comuni</b>, una volta sola, con l'<b>esponente minore</b>.</p>
+  <p><b>mcm</b> (minimo comune multiplo): il più piccolo multiplo comune (diverso da 0).<br>
+  Si prendono <b>tutti</b> i fattori, comuni e non comuni, con l'<b>esponente maggiore</b>.</p>
+  <p>Esempio: 12 = 2² × 3 e 18 = 2 × 3². MCD = 2 × 3 = 6. mcm = 2² × 3² = 36.</p>`;
+
+function mixa(a){
+  const r = a.slice();
+  for(let i = r.length - 1; i > 0; i--){ const j = Math.floor(Math.random() * (i + 1)); [r[i], r[j]] = [r[j], r[i]]; }
+  return r;
+}
+function mapDa(a, b, f){          // combina gli esponenti di due mappe
+  const out = {};
+  new Set(Object.keys(a).concat(Object.keys(b))).forEach(p => {
+    const v = f(a[p] || 0, b[p] || 0);
+    if(v > 0) out[p] = v;
+  });
+  return out;
+}
+function valMap(m){ return Object.keys(m).reduce((t, p) => t * Math.pow(Number(p), m[p]), 1); }
+function sceltaMappe(giusta, altre){
+  const chiave = m => U.fattoriHtml(m);
+  const visti = new Set([chiave(giusta)]);
+  const lista = [];
+  altre.forEach(m => { const c = chiave(m); if(!visti.has(c) && Object.keys(m).length){ visti.add(c); lista.push(m); } });
+  const opz = mixa([giusta].concat(lista.slice(0, 3)));
+  return { opzioni: opz.map(chiave), corretta: opz.indexOf(giusta) };
+}
+function sbagliaScomposizione(m){
+  const ks = Object.keys(m);
+  const out = [];
+  const a = Object.assign({}, m); a[ks[0]] += 1; out.push(a);
+  const b = Object.assign({}, m); const q = [2, 3, 5, 7].find(x => !m[x]); if(q){ delete b[ks[ks.length - 1]]; b[q] = 1; out.push(b); }
+  if(ks.length > 1){ const c = Object.assign({}, m); delete c[ks[0]]; out.push(c); }
+  const d = Object.assign({}, m); d[ks[ks.length - 1]] += 1; out.push(d);
+  return out;
+}
+
+function esGuidato(tipo){
+  const nums = numeri(U.pick([1, 2])).slice(0, 2);
+  const [a, b] = nums;
+  const ma = U.fattorizza(a), mb = U.fattorizza(b);
+  const passi = [];
+  [[a, ma], [b, mb]].forEach(([n, m]) => {
+    const sc = sceltaMappe(m, sbagliaScomposizione(m));
+    passi.push({
+      tipo: 'scelta', testo: `Scomponi <b>${n}</b> in fattori primi: quale scrittura è corretta?`,
+      opzioni: sc.opzioni, corretta: sc.corretta,
+      suggerimento: `Dividi ${n} per il più piccolo primo possibile (2, 3, 5…) e continua sul risultato finché arrivi a 1.`,
+      spiegazione: `${n} = ${U.fattoriHtml(m)}`
+    });
+  });
+  const mn = mapDa(ma, mb, (x, y) => (x && y) ? Math.min(x, y) : 0);
+  const mx = mapDa(ma, mb, (x, y) => Math.max(x, y));
+  const mxComuni = mapDa(ma, mb, (x, y) => (x && y) ? Math.max(x, y) : 0);
+  const prodotto = mapDa(ma, mb, (x, y) => x + y);
+  const mnTutti = mapDa(ma, mb, (x, y) => Math.min(x || y, y || x));
+  const giusta = tipo === 'mcd' ? mn : mx;
+  const altre = tipo === 'mcd' ? [mx, mxComuni, mnTutti, prodotto] : [mn, mxComuni, mnTutti, prodotto];
+  const sc = sceltaMappe(giusta, altre);
+  passi.push({
+    tipo: 'scelta',
+    testo: tipo === 'mcd'
+      ? `Per il <b>MCD</b>: quali fattori prendi? (solo i <b>comuni</b>, con l'esponente <b>minore</b>)`
+      : `Per il <b>mcm</b>: quali fattori prendi? (<b>tutti</b>, con l'esponente <b>maggiore</b>)`,
+    opzioni: sc.opzioni, corretta: sc.corretta,
+    suggerimento: `${a} = ${U.fattoriHtml(ma)}<br>${b} = ${U.fattoriHtml(mb)}<br>` +
+      (tipo === 'mcd' ? 'Tieni solo i primi presenti in entrambi, con l\'esponente più piccolo.' : 'Tieni tutti i primi che compaiono, con l\'esponente più grande.'),
+    spiegazione: `Scelti: ${U.fattoriHtml(giusta)}.`
+  });
+  const ris = valMap(giusta);
+  passi.push({
+    tipo: 'numerica', testo: `Moltiplica i fattori scelti: quanto fa <b>${U.fattoriHtml(giusta)}</b>?`,
+    corretta: ris, suggerimento: 'Calcola prima le potenze, poi moltiplica i risultati.',
+    spiegazione: `${U.fattoriHtml(giusta)} = ${ris}.`
+  });
+  return {
+    titolo: tipo === 'mcd' ? 'Calcola il MCD' : 'Calcola il mcm',
+    testo: `Calcola il <b>${tipo === 'mcd' ? 'MCD' : 'mcm'}</b> di <span class="num">${a}</span> e <span class="num">${b}</span>.`,
+    passi, conclusione: `${tipo === 'mcd' ? 'MCD' : 'mcm'}(${a}, ${b}) = ${ris}`
+  };
+}
+
 Palestra.registraArgomento({
   id: 'mcd-mcm',
   titolo: 'MCD e mcm',
   descrizione: 'Massimo comun divisore e minimo comune multiplo: calcolo, problemi e primi tra loro.',
+  guida: { teoria: TEORIA_MM, generaEsercizio(indice){ return esGuidato(indice % 2 === 0 ? 'mcd' : 'mcm'); } },
   generaDomanda(livello, indice){
     const lista = ROTAZIONE[livello] || ROTAZIONE[1];
     switch(lista[indice % lista.length]){

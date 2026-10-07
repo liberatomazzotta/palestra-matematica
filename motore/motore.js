@@ -22,6 +22,8 @@
  *   punti:       punti base (default 8)
  *   tempo:       secondi entro cui si prende il bonus velocità pieno (default 3)
  *   spiegazione: HTML mostrato in esercitazione dopo un errore (regola di teoria)
+ *
+ * Facoltativo, per "Guidami": guida: { teoria: 'HTML', generaEsercizio(indice) } (vedi README).
  *   mostra(contenitore, ctx)   (solo personalizzata) disegna da sé la domanda e chiama
  *        ctx.corretta(punti)           quando l'alunno ha finito bene
  *        ctx.errata(html, avanza)      per un errore (avanza=true passa alla domanda dopo)
@@ -136,6 +138,7 @@ function stopAll(){
   if(timerInterval){ clearInterval(timerInterval); timerInterval = null; }
   leaveGaraFlow();
   leaveTeacherFlow();
+  guidaCtx = null;
   if(state){ state.over = true; }
 }
 
@@ -186,7 +189,7 @@ function renderMsg(titolo, corpo, opts){
 
 // ================= MENU =================
 let menuTopic = '';      // ultimo argomento scelto nel menu
-let menuView = 'home';   // 'home' | 'allenamento' | 'gara'
+let menuView = 'home';   // 'home' | 'guidami' | 'allenamento' | 'gara'
 function renderMenu(){ menuView = 'home'; drawMenu(); }
 function setMenuView(v){ 
   // conserva il nome già scritto cambiando schermata
@@ -214,7 +217,18 @@ function drawMenu(){
   const indietro = '<button class="ghostbtn" id="backHome">← Indietro</button>';
   let corpo;
 
-  if(menuView === 'allenamento'){
+  if(menuView === 'guidami'){
+    const idG = ORDER.filter(id => TOPICS[id].guida);
+    corpo = `
+      <div class="section-title">Guidami</div>
+      <div class="board-note">Prima un ripasso di teoria, poi esercizi risolti passo dopo passo. Nessun punteggio, nessun tempo.</div>
+      ${idG.length ? `
+      <label class="levelrow">Argomento
+        <select class="sel" id="topicSelG">${idG.map(id => `<option value="${U.esc(id)}">${U.esc(TOPICS[id].titolo)}</option>`).join('')}</select>
+      </label>
+      <button class="startbtn" id="startGuidaBtn">Inizia il percorso guidato</button>` : '<div class="empty-board">Nessun argomento ha ancora un percorso guidato.</div>'}
+      ${indietro}`;
+  } else if(menuView === 'allenamento'){
     const opzioni = ORDER.map(id => `<option value="${U.esc(id)}">${U.esc(TOPICS[id].titolo)}</option>`).join('');
     corpo = `
       <div class="section-title">Allenamento</div>
@@ -239,8 +253,9 @@ function drawMenu(){
   } else {
     corpo = `
       <div class="section-title">Cosa vuoi fare oggi?</div>
-      <div class="board-note">Scegli tra allenamento e gara.</div>
+      <div class="board-note">Scegli tra guida, allenamento e gara.</div>
       <div class="choice-home">
+        <button class="homebtn" id="goGuida"><b>Guidami</b><span>Teoria ed esercizi risolti passo dopo passo.</span></button>
         <button class="homebtn" id="goAllenamento"><b>Allenamento</b><span>Esercitati con calma: gli errori ti aiuteranno ad imparare.</span></button>
         <button class="homebtn" id="goGara"><b>Gara</b><span>Sfida i compagni: 3 manches, classifica e podio.</span></button>
       </div>`;
@@ -249,6 +264,9 @@ function drawMenu(){
   panel.innerHTML = `<div class="menu">${campoNome}${corpo}${menuView === 'home' ? docente : ''}</div>`;
 
   const q = id => document.getElementById(id);
+  if(q('goGuida')) q('goGuida').addEventListener('click', () => setMenuView('guidami'));
+  if(q('startGuidaBtn')) q('startGuidaBtn').addEventListener('click', () => { menuTopic = q('topicSelG').value; startGuida(q('topicSelG').value); });
+  if(q('topicSelG') && menuTopic && TOPICS[menuTopic] && TOPICS[menuTopic].guida) q('topicSelG').value = menuTopic;
   if(q('goAllenamento')) q('goAllenamento').addEventListener('click', () => setMenuView('allenamento'));
   if(q('goGara')) q('goGara').addEventListener('click', () => setMenuView('gara'));
   if(q('backHome')) q('backHome').addEventListener('click', () => setMenuView('home'));
@@ -528,6 +546,142 @@ function mostraNumerica(q, area, ctx){
   btn.addEventListener('click', invia);
   input.addEventListener('keydown', e => { if(e.key === 'Enter') invia(); });
   input.focus();
+}
+
+// ================= GUIDAMI (percorso guidato: teoria + esercizi a passi) =================
+// Nessun punteggio, nessun dato su Firestore. L'argomento fornisce:
+//   guida: { teoria: 'HTML', generaEsercizio(indice) -> { titolo, testo, passi:[...], conclusione } }
+//   passo: { testo, tipo:'scelta'|'numerica', opzioni, corretta, suggerimento, spiegazione }
+let guidaCtx = null;
+function startGuida(topicId){
+  stopAll();
+  const t = TOPICS[topicId];
+  if(!t || !t.guida) return;
+  guidaCtx = { topicId, indice: 0 };
+  setModeLabel(t.titolo + ' · Guidami');
+  renderHud('none');
+  panel.innerHTML = `
+    <div class="guide">
+      <div class="section-title">Prima la teoria</div>
+      <div class="rule-box guide-theory">${t.guida.teoria}</div>
+      <div class="trow">
+        <button class="startbtn" id="gEsBtn">Ho capito, vediamo un esercizio →</button>
+        <button class="ghostbtn" id="gMenuBtn">Torna al menu</button>
+      </div>
+    </div>`;
+  document.getElementById('gEsBtn').addEventListener('click', guidaEsercizio);
+  document.getElementById('gMenuBtn').addEventListener('click', renderMenu);
+}
+
+function guidaEsercizio(){
+  const g = guidaCtx; if(!g) return;
+  const t = TOPICS[g.topicId];
+  let es;
+  try{ es = t.guida.generaEsercizio(g.indice); }
+  catch(e){ console.error(e); renderMsg('Errore', 'Impossibile generare l\'esercizio.', { err: true }); return; }
+  g.indice += 1;
+  let i = 0;
+  const fatti = [];
+
+  function disegna(){
+    const p = es.passi[i];
+    const sopra = fatti.map(h => `<div class="gstep done">${h}</div>`).join('');
+    panel.innerHTML = `
+      <div class="guide">
+        <div class="section-title">${es.titolo || 'Esercizio'}</div>
+        <div class="tf-question">${es.testo}</div>
+        <div class="gprog">Passo ${i + 1} di ${es.passi.length}</div>
+        ${sopra}
+        <div class="gstep"><div class="q-area" id="gArea"></div>
+          <div class="rule-box" id="gHint" style="display:none;"></div>
+          <div class="trow"><button class="ghostbtn small" id="gHintBtn">Aiutami</button></div>
+        </div>
+      </div>`;
+    const hintBox = document.getElementById('gHint');
+    const hintBtn = document.getElementById('gHintBtn');
+    hintBtn.addEventListener('click', () => {
+      hintBox.innerHTML = p.suggerimento || 'Rileggi la teoria e prova di nuovo.';
+      hintBox.style.display = 'block';
+    });
+    const ctx = {
+      corretta(){
+        hintBtn.disabled = true;
+        fatti.push(`<b>${i + 1}.</b> ${p.testo} <span class="verdict">${p.rispostaTesto || ''}</span>` +
+          (p.spiegazione ? `<div class="gnote">${p.spiegazione}</div>` : ''));
+        hintBox.innerHTML = `<b class="res">Esatto!</b> ${p.spiegazione || ''}` +
+          `<div style="margin-top:10px;text-align:right"><button class="startbtn alt small" id="gNext">${i + 1 < es.passi.length ? 'Avanti →' : 'Concludi'}</button></div>`;
+        hintBox.style.display = 'block';
+        const b = document.getElementById('gNext'); b.focus();
+        b.addEventListener('click', () => { i += 1; if(i < es.passi.length) disegna(); else conclusione(); });
+      },
+      errata(){
+        hintBox.innerHTML = `<b>Non ancora.</b> ${p.suggerimento || 'Rileggi la teoria e riprova.'}`;
+        hintBox.style.display = 'block';
+      }
+    };
+    mostraPasso(p, document.getElementById('gArea'), ctx);
+  }
+
+  function conclusione(){
+    const sopra = fatti.map(h => `<div class="gstep done">${h}</div>`).join('');
+    panel.innerHTML = `
+      <div class="guide">
+        <div class="section-title">${es.titolo || 'Esercizio'} · completato</div>
+        <div class="tf-question">${es.testo}</div>
+        ${sopra}
+        <div class="rule-box"><b class="res">Risultato:</b> ${es.conclusione || ''}</div>
+        <div class="trow">
+          <button class="startbtn" id="gAltro">Un altro esercizio</button>
+          <button class="ghostbtn" id="gTeoria">Rivedi la teoria</button>
+          <button class="ghostbtn" id="gAllena">Vai all'allenamento</button>
+          <button class="ghostbtn" id="gMenu">Torna al menu</button>
+        </div>
+      </div>`;
+    document.getElementById('gAltro').addEventListener('click', guidaEsercizio);
+    document.getElementById('gTeoria').addEventListener('click', () => startGuida(g.topicId));
+    document.getElementById('gAllena').addEventListener('click', () => { menuTopic = g.topicId; setMenuView('allenamento'); });
+    document.getElementById('gMenu').addEventListener('click', renderMenu);
+  }
+  disegna();
+}
+
+// Un passo guidato: si può riprovare senza limiti e senza penalità.
+function mostraPasso(p, area, ctx){
+  if(p.tipo === 'scelta'){
+    area.innerHTML = `<div class="tf-question">${p.testo}</div><div class="choice-grid" id="gGrid"></div>`;
+    const grid = document.getElementById('gGrid');
+    p.opzioni.forEach((o, k) => {
+      const b = document.createElement('button');
+      b.className = 'choicebtn'; b.innerHTML = o;
+      b.addEventListener('click', () => {
+        if(k === p.corretta){
+          Array.from(grid.children).forEach(x => x.disabled = true);
+          b.classList.add('correct'); p.rispostaTesto = '→ ' + p.opzioni[p.corretta]; ctx.corretta();
+        } else {
+          b.classList.add('incorrect'); b.disabled = true; ctx.errata();
+        }
+      });
+      grid.appendChild(b);
+    });
+  } else {
+    area.innerHTML = `<div class="tf-question">${p.testo}</div>
+      <div class="num-row">
+        <input class="nameinput numinput" id="gIn" inputmode="numeric" autocomplete="off" placeholder="Risposta">
+        <button class="startbtn" id="gOk">Conferma</button>
+      </div>`;
+    const input = document.getElementById('gIn'), btn = document.getElementById('gOk');
+    const invia = () => {
+      const raw = input.value.trim();
+      if(!/^\d+$/.test(raw)){ input.classList.add('bad'); input.focus(); return; }
+      input.classList.remove('bad');
+      if(Number(raw) === p.corretta){
+        input.disabled = true; btn.disabled = true; p.rispostaTesto = '→ ' + p.corretta; ctx.corretta();
+      } else { ctx.errata(); input.select(); }
+    };
+    btn.addEventListener('click', invia);
+    input.addEventListener('keydown', e => { if(e.key === 'Enter') invia(); });
+    input.focus();
+  }
 }
 
 // ================= GARA — LATO ALUNNO =================

@@ -138,10 +138,117 @@ function veroFalso(livello){
   };
 }
 
+
+// ---------- Guidami ----------
+const TEORIA_FP = `
+  <p><b>Numero primo</b>: ha solo due divisori, 1 e se stesso (2, 3, 5, 7, 11, 13…).</p>
+  <p><b>Scomporre in fattori primi</b>: scrivere un numero come prodotto di numeri primi.
+  Si divide il numero per il <b>più piccolo primo</b> che lo divide, poi si ripete sul risultato, finché si arriva a 1.</p>
+  <p><b>Criteri di divisibilità</b>:<br>
+  • per <b>2</b>: ultima cifra pari<br>
+  • per <b>3</b>: somma delle cifre multipla di 3<br>
+  • per <b>4</b>: ultime due cifre multiplo di 4<br>
+  • per <b>5</b>: ultima cifra 0 o 5<br>
+  • per <b>9</b>: somma delle cifre multipla di 9<br>
+  • per <b>10</b>: ultima cifra 0</p>`;
+
+function mescola(a){
+  const r = a.slice();
+  for(let i = r.length - 1; i > 0; i--){ const j = Math.floor(Math.random() * (i + 1)); [r[i], r[j]] = [r[j], r[i]]; }
+  return r;
+}
+const SINO = ['Sì', 'No'];
+
+function esScomposizione(){
+  const N = numeroDaScomporre(1);
+  const fatt = [];
+  { let r = N; PRIMI.forEach(p => { while(r % p === 0){ fatt.push(p); r /= p; } }); if(r > 1) fatt.push(r); }
+  const passi = [];
+  let resto = N;
+  fatt.forEach(f => {
+    const prossimo = resto / f;
+    const cand = PRIMI.filter(x => x !== f && x <= Math.max(7, f + 3)).slice(0, 3);
+    const opz = mescola([f].concat(mescola(cand).slice(0, 2)));
+    passi.push({
+      tipo: 'scelta',
+      testo: `Qual è il più piccolo numero primo che divide <b>${resto}</b>?`,
+      opzioni: opz.map(String), corretta: opz.indexOf(f),
+      suggerimento: `Prova con 2, poi 3, poi 5… Il primo che divide ${resto} senza resto è quello giusto. ${richiamo(resto, f <= 11 ? f : 7).regola}`,
+      spiegazione: `${resto} è divisibile per ${f}.`
+    });
+    passi.push({
+      tipo: 'numerica',
+      testo: `Quanto fa <b>${resto} ÷ ${f}</b>?`,
+      corretta: prossimo,
+      suggerimento: `Cerca il numero che moltiplicato per ${f} dà ${resto}.`,
+      spiegazione: prossimo === 1 ? 'Siamo arrivati a 1: abbiamo finito.' : `Ora si continua con ${prossimo}.`
+    });
+    resto = prossimo;
+  });
+  const giusta = fatt.join(' × ');
+  const sbagliate = [
+    fatt.slice(0, -1).concat([fatt[fatt.length - 1] + 1]).join(' × '),
+    fatt.concat([2]).join(' × '),
+    fatt.slice(1).join(' × ') || '1'
+  ].filter(x => x !== giusta);
+  const opz = mescola([giusta].concat(Array.from(new Set(sbagliate)).slice(0, 3)));
+  passi.push({
+    tipo: 'scelta',
+    testo: `Metti insieme tutti i divisori usati: com'è scomposto <b>${N}</b>?`,
+    opzioni: opz, corretta: opz.indexOf(giusta),
+    suggerimento: 'Il prodotto dei fattori deve ridare il numero di partenza, e tutti devono essere primi.',
+    spiegazione: `${N} = ${U.fattoriHtml(U.fattorizza(N))}`
+  });
+  return {
+    titolo: 'Scomponi in fattori primi',
+    testo: `Scomponi <span class="num">${N}</span> in fattori primi.`,
+    passi, conclusione: `${N} = ${giusta} = ${U.fattoriHtml(U.fattorizza(N))}`
+  };
+}
+
+function esCriterio(){
+  const k = U.pick([3, 9, 4]);
+  let n = U.rand(100, 9999);
+  if(Math.random() < 0.5) n = Math.ceil(n / k) * k;
+  const ok = divisibile(n, k);
+  const val = k === 4 ? n % 100 : cifre(n);
+  const passi = [
+    k === 4 ? {
+      tipo: 'numerica',
+      testo: `Quale numero formano le <b>ultime due cifre</b> di ${n}?`,
+      corretta: val, suggerimento: `Guarda solo le ultime due cifre di ${n}.`,
+      spiegazione: `Per il 4 contano solo le ultime due cifre: ${n % 100}.`
+    } : {
+      tipo: 'numerica',
+      testo: `Quanto fa la <b>somma delle cifre</b> di ${n}?`,
+      corretta: val, suggerimento: `Somma una per una le cifre: ${String(n).split('').join(' + ')}.`,
+      spiegazione: `${String(n).split('').join(' + ')} = ${val}.`
+    },
+    {
+      tipo: 'scelta',
+      testo: `${val} è multiplo di <b>${k}</b>?`, opzioni: SINO, corretta: val % k === 0 ? 0 : 1,
+      suggerimento: `Controlla se ${val} compare nella tabellina del ${k}.`,
+      spiegazione: `${val} ${val % k === 0 ? 'è' : 'non è'} multiplo di ${k}.`
+    },
+    {
+      tipo: 'scelta',
+      testo: `Allora <b>${n}</b> è divisibile per <b>${k}</b>?`, opzioni: SINO, corretta: ok ? 0 : 1,
+      suggerimento: richiamo(n, k).regola,
+      spiegazione: richiamo(n, k).regola
+    }
+  ];
+  return {
+    titolo: `Divisibile per ${k}?`,
+    testo: `Il numero <span class="num">${n}</span> è divisibile per <span class="num">${k}</span>?`,
+    passi, conclusione: `${n} ${ok ? 'È' : 'NON è'} divisibile per ${k}.`
+  };
+}
+
 Palestra.registraArgomento({
   id: 'fattori-primi',
   titolo: 'Fattori primi e divisibilità',
   descrizione: 'Scomposizione in fattori primi e criteri di divisibilità (2, 3, 4, 5, 9, 10, 11).',
+  guida: { teoria: TEORIA_FP, generaEsercizio(indice){ return indice % 2 === 0 ? esScomposizione() : esCriterio(); } },
   generaDomanda(livello, indice){
     return indice % 3 === 2 ? veroFalso(livello) : scomposizione(livello);
   }
