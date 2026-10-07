@@ -389,7 +389,7 @@ function drawMenu(){
       <div class="choice-home">
         <button class="homebtn" id="goGuida"><b>Guidami</b><span>Teoria ed esercizi risolti passo dopo passo.</span></button>
         <button class="homebtn" id="goAllenamento"><b>Allenamento</b><span>Esercitati con calma: gli errori ti aiuteranno ad imparare.</span></button>
-        <button class="homebtn" id="goGara"><b>Gara</b><span>Sfida i compagni: 3 manches, classifica e podio.</span></button>
+        <button class="homebtn" id="goGara"><b>Gara</b><span>Sfida i compagni e metti a frutto i tuoi progressi.</span></button>
       </div>`;
   }
 
