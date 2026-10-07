@@ -363,7 +363,7 @@ function drawMenu(){
     const opzioni = ORDER.map(id => `<option value="${U.esc(id)}">${U.esc(TOPICS[id].titolo)}</option>`).join('');
     corpo = `
       <div class="section-title">Allenamento</div>
-      <div class="section-sub">Nessun punteggio in classifica. Gli errori ti aiuteranno ad imparare.</div>
+      <div class="section-sub">Esercitati in completa autonomia: nessun aiuto. Te la devi cavare da solo!</div>
       ${ORDER.length ? `
       <label class="levelrow">Argomento
         <select class="sel" id="topicSel">${opzioni}</select>
