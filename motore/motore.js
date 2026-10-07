@@ -259,7 +259,7 @@ function drawMenu(){
   } else {
     corpo = `
       <div class="section-title">Cosa vuoi fare oggi?</div>
-      <div class="board-note">Scegli tra esercizi guidati, allenamento o gara.</div>
+      <div class="board-note">Decidi come migliorare: Esercizi guidati o allenamento?</div>
       <div class="choice-home">
         <button class="homebtn" id="goGuida"><b>Guidami</b><span>Teoria ed esercizi risolti passo dopo passo.</span></button>
         <button class="homebtn" id="goAllenamento"><b>Allenamento</b><span>Esercitati con calma: gli errori ti aiuteranno ad imparare.</span></button>
@@ -267,7 +267,11 @@ function drawMenu(){
       </div>`;
   }
 
-  panel.innerHTML = `<div class="menu">${campoNome}${corpo}${menuView === 'home' ? docente : ''}</div>`;
+  // Cognome e Nome si chiede solo dopo la scelta, sotto il titolo della sezione
+  let html;
+  if(menuView === 'home') html = corpo + docente;
+  else { const k = corpo.indexOf('</div>') + 6; html = corpo.slice(0, k) + campoNome + corpo.slice(k); }
+  panel.innerHTML = `<div class="menu">${html}</div>`;
 
   const q = id => document.getElementById(id);
   if(q('goGuida')) q('goGuida').addEventListener('click', () => setMenuView('guidami'));
