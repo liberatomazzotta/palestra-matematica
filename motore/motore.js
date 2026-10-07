@@ -219,7 +219,7 @@ function drawMenu(){
         <input class="nameinput" id="nomeInput" maxlength="30" placeholder="Scrivi Cognome e Nome" autocomplete="off" value="${U.esc(nome)}">
         <div class="board-note" id="nomeNote"></div>
       </div>`;
-  const docente = '<button class="ghostbtn" id="teacherLink" style="margin-top:10px;opacity:0.75;">Pannello docente</button>';
+  const docente = '<button class="ghostbtn" id="teacherLink" style="margin-top:10px;opacity:0.75;">Cruscotto docente</button>';
   const indietro = '<button class="ghostbtn" id="backHome">← Indietro</button>';
   let corpo;
 
@@ -1176,7 +1176,7 @@ function renderTeacherGate(errMsg){
   state = null; updateScore(); renderHud('none'); setModeLabel('docente');
   panel.innerHTML = `
     <div class="center-screen">
-      <h2>Pannello docente</h2>
+      <h2>Cruscotto docente</h2>
       <p>Inserisci il codice per creare la gara e avviare le manches.</p>
       <input type="password" class="nameinput" id="pinInput" placeholder="Codice" autocomplete="off">
       <button class="startbtn" id="pinBtn" ${configured() ? '' : 'disabled'}>Entra</button>
@@ -1203,7 +1203,7 @@ function renderTeacherPanel(){
   const manchBtns = [1, 2, 3].map(n => `<button class="startbtn" data-m="${n}" disabled>Avvia Manche ${n}</button>`).join('');
   panel.innerHTML = `
     <div class="center-screen">
-      <h2>Pannello docente</h2>
+      <h2>Cruscotto docente</h2>
       <p class="board-note" id="tStatus" style="opacity:1;">Connessione...</p>
       <div class="tbox">
         <div class="instr">1 · Nuova gara</div>
@@ -1223,7 +1223,7 @@ function renderTeacherPanel(){
         <div class="trow"><button class="ghostbtn" id="tDelAll">Cancella tutti i risultati e le presenze</button></div>
         <div class="board-note" id="tDelNote"></div>
       </div>
-      <div class="trow"><a class="ghostbtn" href="mosaico.html" target="_blank" rel="noopener" style="text-decoration:none;display:inline-block;">Cruscotto docente: alunni, classifica live e report ↗</a></div>
+      <div class="trow"><a class="ghostbtn" href="mosaico.html" target="_blank" rel="noopener" style="text-decoration:none;display:inline-block;">Vista alunni, classifica live e report ↗</a></div>
       <p class="board-note err" id="tErr" style="display:none;"></p>
       <button class="ghostbtn" id="tBack">Torna al menu</button>
     </div>`;

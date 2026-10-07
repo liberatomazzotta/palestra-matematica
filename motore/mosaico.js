@@ -1,4 +1,4 @@
-/* CRUSCOTTO DOCENTE (file mosaico.html) — pagina da proiettare (solo docente).
+/* VISTA ALUNNI (file mosaico.html) — pagina da proiettare (solo docente).
  * Vista "Allenamento": riquadri degli alunni (collezione "presence"), in alto chi ha più bisogno di aiuto.
  * Vista "Gara": classifica live durante la manche (collezione "live"), tra una manche e l'altra
  * classifica della manche e generale (collezione "scores"). */
@@ -22,7 +22,7 @@ function esc(s){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&l
 function configured(){ return !!FB.apiKey && String(FB.apiKey).indexOf('INSERISCI') !== 0; }
 
 function gate(err){
-  root.innerHTML = `<div class="mosaic-gate"><h1>Cruscotto docente</h1>
+  root.innerHTML = `<div class="mosaic-gate"><h1>Vista alunni</h1>
     <p>Inserisci il codice docente.</p>
     <input type="password" class="nameinput" id="pin" placeholder="Codice" autocomplete="off">
     <button class="startbtn" id="go">Entra</button>
@@ -187,7 +187,7 @@ function mmss(ms){ const s = Math.max(0, Math.ceil(ms / 1000)); return String(Ma
 function renderGara(){
   const now = Date.now();
   const f = fase(gameState, now);
-  if(f.phase === 'nogara') return { bar: '', body: '<div class="empty-board">Nessuna gara creata. Creala dal Pannello docente.</div>' };
+  if(f.phase === 'nogara') return { bar: '', body: '<div class="empty-board">Nessuna gara creata. Creala dal Cruscotto docente.</div>' };
   const titolo = f.manche ? `Manche ${f.manche} di 3` : 'Gara pronta';
   if(f.phase === 'idle') return { bar: `<span>${titolo}</span>`, body: '<div class="empty-board">In attesa dell\'avvio della manche.</div>' + (scoreDocs.size ? tableGenerale() : '') };
   if(f.phase === 'countdown') return { bar: `<span>${titolo} · via tra <b>${Math.ceil(f.remaining / 1000)}</b></span>`, body: '<div class="empty-board" style="font-size:42px;">Pronti…</div>' };
@@ -314,7 +314,7 @@ function render(force){
   if(effective === 'report' && !force && document.getElementById('mbody') && repDocs) return;
   const out = effective === 'gara' ? renderGara() : effective === 'report' ? renderReport() : renderAllenamento();
   if(!document.getElementById('mbody')){
-    root.innerHTML = `<div class="mosaic-head"><h1>Cruscotto docente</h1>
+    root.innerHTML = `<div class="mosaic-head"><h1>Vista alunni</h1>
       <div class="mtabs"><button data-v="allenamento" id="tabA">Allenamento</button><button data-v="gara" id="tabG">Gara</button><button data-v="report" id="tabR">Report</button></div>
       <div class="mbar" id="mbar"></div></div><div id="mbody"></div>`;
     root.querySelectorAll('.mtabs button').forEach(b => b.addEventListener('click', () => { view = b.getAttribute('data-v'); if(view === 'report') repDocs = null; render(true); }));

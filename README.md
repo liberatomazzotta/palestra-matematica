@@ -18,7 +18,7 @@ avviata dal docente. Non c'è nessun legame con le classi: gli alunni scrivono s
 index.html            pagina principale (la si apre da qui)
 config.js             configurazione Firebase e codice docente  <-- unico file da modificare
 firestore.rules       regole di sicurezza del database
-motore/               menu, gara, podio, pannello docente
+motore/               menu, gara, podio, cruscotto docente
 argomenti/
   fattori-primi.js    fattori primi e criteri di divisibilità
   mcd-mcm.js          MCD e mcm
@@ -50,19 +50,19 @@ Se i Chromebook della scuola bloccano `github.io`, usa **Firebase Hosting** (`we
 
 1. Alunni: aprono il link, scrivono Cognome e Nome, scelgono **Allenamento** (poi argomento da elenco a discesa e livello) oppure **Gara**.
 2. Pausa o fine riscaldamento: gli alunni premono **Entra in gara** e restano in attesa.
-3. Docente: **Pannello docente** → codice → scegli l'argomento → **Crea nuova gara** → **Avvia Manche 1**.
+3. Docente: **Cruscotto docente** → codice → scegli l'argomento → **Crea nuova gara** → **Avvia Manche 1**.
    Il pannello mostra in tempo reale lo stato e quanti punteggi sono stati consegnati.
 4. Dopo la Manche 3: **Classifica finale (podio)** dal pannello (o dal pulsante che compare agli alunni).
 
-## Cruscotto docente (allenamento)
+## Vista alunni (allenamento)
 
 La pagina si chiama `mosaico.html` (indirizzo invariato, i segnalibri continuano a funzionare).
 
-Durante l'allenamento il docente può proiettare `mosaico.html` (link dal Pannello docente, oppure `…/palestra-matematica/mosaico.html`).
+Durante l'allenamento il docente può proiettare `mosaico.html` (link dal Cruscotto docente, oppure `…/palestra-matematica/mosaico.html`).
 Ogni alunno è un riquadro con percentuale di risposte giuste, giuste/errate, ultime 6 risposte (pallini verdi/rossi) e stato.
 In alto compaiono gli alunni in difficoltà (3 errori di fila, oppure 4 errori nelle ultime 6 risposte), con bordo rosso.
 Serve il nome: in allenamento si deve scrivere Cognome e Nome. **Dopo l'aggiornamento ripubblica `firestore.rules`**
-(Console Firebase → Firestore → Regole), altrimenti il cruscotto resta vuoto.
+(Console Firebase → Firestore → Regole), altrimenti la vista alunni resta vuota.
 **Vista Gara** (scheda in alto nella stessa pagina, si apre da sola quando parte una manche): durante la manche, classifica
 live solo sulla schermata del docente (gli alunni non la vedono) con punteggio, giuste/errate e totale provvisorio;
 tra una manche e l'altra, classifica della manche e classifica generale. I punteggi parziali si aggiornano ogni 5 secondi circa.
@@ -77,22 +77,22 @@ Per un nuovo argomento basta che le domande abbiano `categoria`; facoltativament
 
 ## Errori frequenti e report per alunno
 
-- **Cruscotto → Allenamento**: in alto la fascia "Errori più frequenti oggi" (tipi di esercizio sbagliati da più alunni collegati); sulla tessera compare "Punto debole: …" quando un alunno ha almeno 2 errori e almeno il 40% di errori su un tipo di esercizio.
-- **Cruscotto → Report**: una riga per alunno (argomenti, minuti, risposte, % corrette, esercizi guidati, punti deboli). Filtri per periodo (oggi, 7 giorni, 30 giorni, tutto) e argomento; clic su un alunno per il dettaglio per tipo di esercizio. "Scarica CSV" si apre con Excel o Fogli Google; "Stampa / PDF" per archiviare.
+- **Vista alunni → Allenamento**: in alto la fascia "Errori più frequenti oggi" (tipi di esercizio sbagliati da più alunni collegati); sulla tessera compare "Punto debole: …" quando un alunno ha almeno 2 errori e almeno il 40% di errori su un tipo di esercizio.
+- **Vista alunni → Report**: una riga per alunno (argomenti, minuti, risposte, % corrette, esercizi guidati, punti deboli). Filtri per periodo (oggi, 7 giorni, 30 giorni, tutto) e argomento; clic su un alunno per il dettaglio per tipo di esercizio. "Scarica CSV" si apre con Excel o Fogli Google; "Stampa / PDF" per archiviare.
 - Contano allenamento e Guidami (in Guidami solo il primo tentativo di ogni passo). La gara è esclusa.
 - I dati stanno nello stesso documento `presence` di ogni alunno (campo `giorni`) e viaggiano con le scritture già esistenti: nessuna scrittura in più e nessuna modifica alle rules.
 - Attenzione: "Pulizia dati" → cancellare le presenze cancella anche lo storico del report. Scarica prima il CSV.
 
 ## Cancellare i risultati
 
-Nel Pannello docente, sezione **Pulizia dati**: «Cancella i risultati di questa gara» (punteggi e dati live della gara corrente)
-oppure «Cancella tutti i risultati e le presenze» (tutte le gare e il cruscotto). Chiede conferma e non si può annullare.
+Nel Cruscotto docente, sezione **Pulizia dati**: «Cancella i risultati di questa gara» (punteggi e dati live della gara corrente)
+oppure «Cancella tutti i risultati e le presenze» (tutte le gare e la vista alunni). Chiede conferma e non si può annullare.
 Richiede le regole Firestore aggiornate (cancellazione consentita). Senza login non si può distinguere il docente dagli alunni:
 chi conosce l'app e sa usare gli strumenti del browser potrebbe cancellare i punteggi. Per una gara in classe è un rischio accettabile.
 
 ## Guidami (percorso guidato)
 
-Terza voce della home, accanto ad Allenamento e Gara: l'alunno sceglie l'argomento, legge un ripasso di **teoria**, poi svolge esercizi **a passi** (ogni passo è una piccola domanda; si può riprovare senza penalità e il pulsante "Aiutami" mostra un suggerimento). Alla fine vede la soluzione completa e può passare a un altro esercizio o all'allenamento. Nessun punteggio e nessun tempo. Gli alunni compaiono nel cruscotto del docente (tessera con bordo blu: argomento, esercizio e passo, giuste/errate; "Legge la teoria" mentre sono sulla teoria). Usa lo stesso documento `presence` dell'allenamento, quindi non servono nuove rules e il costo in scritture è quello dell'allenamento.
+Terza voce della home, accanto ad Allenamento e Gara: l'alunno sceglie l'argomento, legge un ripasso di **teoria**, poi svolge esercizi **a passi** (ogni passo è una piccola domanda; si può riprovare senza penalità e il pulsante "Aiutami" mostra un suggerimento). Alla fine vede la soluzione completa e può passare a un altro esercizio o all'allenamento. Nessun punteggio e nessun tempo. Gli alunni compaiono nella vista alunni del docente (tessera con bordo blu: argomento, esercizio e passo, giuste/errate; "Legge la teoria" mentre sono sulla teoria). Usa lo stesso documento `presence` dell'allenamento, quindi non servono nuove rules e il costo in scritture è quello dell'allenamento.
 
 Per aggiungerlo a un argomento, nel file in `argomenti/` si aggiunge la proprietà `guida`:
 
@@ -118,7 +118,7 @@ Gli argomenti senza `guida` non compaiono nel menu di Guidami.
 
 ## Aggiungere un argomento
 
-Nota: la riga `<script src="argomenti/....js">` va aggiunta sia in `index.html` sia in `mosaico.html` (al cruscotto servono titoli e nomi delle categorie). Per il report, ogni domanda può indicare `categoria: 'id'` e l'argomento l'elenco `categorie: { id: 'Nome leggibile' }`; negli esercizi di Guidami la `categoria` va sull'esercizio.
+Nota: la riga `<script src="argomenti/....js">` va aggiunta sia in `index.html` sia in `mosaico.html` (alla vista alunni servono titoli e nomi delle categorie). Per il report, ogni domanda può indicare `categoria: 'id'` e l'argomento l'elenco `categorie: { id: 'Nome leggibile' }`; negli esercizi di Guidami la `categoria` va sull'esercizio.
 
 1. Copia `argomenti/mcd-mcm.js` in un nuovo file (es. `argomenti/frazioni.js`).
 2. Cambia `id`, `titolo`, `descrizione` e scrivi `generaDomanda(livello, indice)`.
