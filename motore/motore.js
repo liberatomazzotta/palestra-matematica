@@ -138,7 +138,7 @@ function leaveTeacherFlow(){
   teacherCtx = null;
 }
 function stopAll(){
-  setScoreVisible(true);
+  setScoreVisible(false);   // i punti si vedono solo in allenamento e in gara
   presStop();
   liveStop();
   if(timerInterval){ clearInterval(timerInterval); timerInterval = null; }
@@ -485,6 +485,7 @@ function startPratica(topicId){
     elapsedSeconds: 0, current: null, over: false,
     ripasso: {}, superati: {}, normaliDaRipasso: 0
   };
+  setScoreVisible(true);
   updateScore();
   setModeLabel(TOPICS[topicId].titolo);
   renderHud('pratica');
@@ -983,6 +984,7 @@ function beginGara(info, rk){
     name: garaCtx.name, score: 0, askedCount: 0, correctCount: 0, wrongCount: 0,
     current: null, over: false, endAt: info.startAt + info.duration, duration: info.duration
   };
+  setScoreVisible(true);
   updateScore();
   setModeLabel(`manche ${info.manche} di ${N_MANCHES}`);
   renderHud('gara');
