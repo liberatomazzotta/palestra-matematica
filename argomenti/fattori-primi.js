@@ -119,9 +119,9 @@ function scomposizione(livello){
   };
 }
 
-function veroFalso(livello){
+function veroFalso(livello, kForzato){
   const criteri = livello <= 2 ? [2, 3, 4, 5, 9, 10] : [2, 3, 4, 5, 9, 10, 11];
-  const k = U.pick(criteri);
+  const k = kForzato || U.pick(criteri);
   let n = livello === 1 ? U.rand(10, 99) : livello === 2 ? U.rand(100, 999) : U.rand(100, 9999);
   if(Math.random() < 0.5){
     n = Math.ceil(n / k) * k;
@@ -254,6 +254,11 @@ Palestra.registraArgomento({
     'crit-9': 'Criterio del 9', 'crit-10': 'Criterio del 10', 'crit-11': "Criterio dell'11"
   },
   guida: { teoria: TEORIA_FP, generaEsercizio(indice){ return indice % 2 === 0 ? esScomposizione() : esCriterio(); } },
+  generaDomandaDi(categoria, livello){
+    if(categoria === 'scomp') return scomposizione(livello);
+    const m = /^crit-(\d+)$/.exec(categoria);
+    return m ? veroFalso(Math.max(livello, 2), Number(m[1])) : null;
+  },
   generaDomanda(livello, indice){
     return indice % 3 === 2 ? veroFalso(livello) : scomposizione(livello);
   }

@@ -300,6 +300,16 @@ Palestra.registraArgomento({
     'div': 'Divisori comuni', 'mult': 'Multipli comuni'
   },
   guida: { teoria: TEORIA_MM, generaEsercizio(indice){ return esGuidato(indice % 2 === 0 ? 'mcd' : 'mcm'); } },
+  generaDomandaDi(categoria, livello){
+    const q = {
+      'div': () => qDivisoreComune(), 'mult': () => qMultiploComune(),
+      'calc-mcd': () => qCalcolo('mcd', numeri(livello)), 'calc-mcm': () => qCalcolo('mcm', numeri(livello)),
+      'vf': () => qVeroFalsoMisura(livello), 'coprimi': () => qCoprimi(livello),
+      'prob-mcd': () => qProblemaMCD(livello), 'prob-mcm': () => qProblemaMCM()
+    }[categoria];
+    if(!q) return null;
+    const d = q(); d.categoria = categoria; return d;
+  },
   generaDomanda(livello, indice){
     const lista = ROTAZIONE[livello] || ROTAZIONE[1];
     const tipo = lista[indice % lista.length];

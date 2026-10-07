@@ -288,3 +288,4 @@ body.mosaic-page .foot{padding:10px 0 20px;}
   .mfreq,.mfreq .chip{background:#fff !important;color:#000 !important;}
   .rtable .wk,.mweak,.rsub tr.rweak td{color:#b00 !important;}
 }
+.rip-badge{align-self:center;font-size:12px;font-weight:700;letter-spacing:.04em;color:var(--board);background:var(--yellow);padding:3px 10px;border-radius:999px;margin-bottom:4px;}

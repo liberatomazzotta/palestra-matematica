@@ -67,6 +67,12 @@ tra una manche e l'altra, classifica della manche e classifica generale. I punte
 Costo: al massimo una scrittura ogni 8 secondi per alunno più un segnale ogni 40 secondi: circa 9.000 scritture per 30 alunni in 40 minuti
 (limite gratuito: 20.000 al giorno).
 
+## Allenamento mirato
+
+In allenamento, quando l'alunno sbaglia un tipo di esercizio (es. "Criterio del 3"), quel tipo torna come **ripasso** (etichetta gialla "Ripasso · …") dopo una domanda normale, finché non risponde giusto **2 volte di fila** a quel tipo. Se sbaglia di nuovo, il conteggio riparte. Con più tipi in sospeso, si parte da quello con più errori. A fine allenamento compare l'elenco dei tipi "ripassati e superati" e di quelli "da ripassare ancora". Non vale in gara.
+
+Per un nuovo argomento basta che le domande abbiano `categoria`; facoltativamente l'argomento può offrire `generaDomandaDi(categoria, livello)` per generare subito una domanda di quel tipo (altrimenti il motore la cerca generando domande a caso).
+
 ## Errori frequenti e report per alunno
 
 - **Mosaico → Allenamento**: in alto la fascia "Errori più frequenti oggi" (tipi di esercizio sbagliati da più alunni collegati); sulla tessera compare "Punto debole: …" quando un alunno ha almeno 2 errori e almeno il 40% di errori su un tipo di esercizio.

@@ -104,6 +104,7 @@ function setScoreVisible(v){
 function updateScore(){ scoreEl.textContent = state ? state.score : 0; }
 function setModeLabel(t){ modeLabelEl.textContent = t || ''; }
 function nameKey(n){ return String(n || '').trim().replace(/\s+/g, ' ').toLowerCase(); }
+function nomeCategoria(topicId, c){ const t = TOPICS[topicId]; return (t && t.categorie && t.categorie[c]) || c; }
 function topicTitle(id){ return TOPICS[id] ? TOPICS[id].titolo : String(id || ''); }
 
 function levelForCount(c){
@@ -437,7 +438,8 @@ function startPratica(topicId){
     mode: 'pratica', topicId,
     fixedLevel: praticaLivello === 'auto' ? 0 : Number(praticaLivello),
     score: 0, askedCount: 0, correctCount: 0, wrongCount: 0,
-    elapsedSeconds: 0, current: null, over: false
+    elapsedSeconds: 0, current: null, over: false,
+    ripasso: {}, superati: {}, normaliDaRipasso: 0
   };
   updateScore();
   setModeLabel(TOPICS[topicId].titolo);
@@ -474,6 +476,11 @@ function endPractice(){
       <h2>Esercitazione conclusa</h2>
       <p>Hai risposto correttamente a <b style="color:var(--yellow)">${state.correctCount}</b> domande in
       <b style="color:var(--yellow)">${m}:${s}</b>, con un'accuratezza del <b style="color:var(--yellow)">${acc}</b>.</p>
+      ${(() => {
+        const sup = Object.keys(state.superati || {}), aperti = Object.keys(state.ripasso || {});
+        return (sup.length ? `<p>Ripassati e superati: <b style="color:var(--green)">${sup.map(c => U.esc(nomeCategoria(topicId, c))).join(', ')}</b>.</p>` : '') +
+          (aperti.length ? `<p>Da ripassare ancora: <b style="color:var(--pink)">${aperti.map(c => U.esc(nomeCategoria(topicId, c))).join(', ')}</b>.</p>` : '');
+      })()}
       <p style="font-size:12px;opacity:0.75;">L'allenamento non entra in classifica: serve a prepararti alla gara.</p>
       <div class="trow">
         <button class="startbtn alt" id="againBtn">Esercitati ancora</button>
@@ -490,22 +497,76 @@ function nextQuestion(){
   if(state.mode === 'gara' && Date.now() >= state.endAt){ finishManche(); return; }
   const topic = TOPICS[state.topicId];
   const livello = state.fixedLevel || levelForCount(state.correctCount);
-  let q;
-  try{ q = topic.generaDomanda(livello, state.askedCount); }
+  let q, rip = null;
+  try{
+    rip = state.mode === 'pratica' ? scegliRipasso() : null;
+    if(rip){
+      q = domandaDiCategoria(topic, rip, livello);
+      if(!q){ delete state.ripasso[rip]; rip = null; }   // l'argomento non sa generarla: si rinuncia
+    }
+    if(!q){ q = topic.generaDomanda(livello, state.askedCount); state.normaliDaRipasso += 1; }
+    else state.normaliDaRipasso = 0;
+  }
   catch(e){
     console.error(e);
     panel.innerHTML = '<div class="center-screen"><p class="board-note err">Errore nel generare la domanda. Torna al menu e riprova.</p></div>';
     return;
   }
   state.askedCount += 1;
-  state.current = { q, startTs: Date.now(), done: false };
+  state.current = { q, startTs: Date.now(), done: false, ripasso: rip, errato: false };
   drawQuestion();
+}
+
+// ---------- Allenamento mirato ----------
+// Dopo un errore, la stessa categoria di domanda torna (intervallata da una domanda normale)
+// finché l'alunno non risponde giusto RIPASSO_OK volte di fila a quella categoria.
+const RIPASSO_OK = 2;
+function scegliRipasso(){
+  const cats = Object.keys(state.ripasso || {});
+  if(!cats.length || state.normaliDaRipasso < 1) return null;
+  // la categoria con più errori; a parità, quella in attesa da più tempo
+  cats.sort((a, b) => state.ripasso[b].errori - state.ripasso[a].errori || state.ripasso[a].ts - state.ripasso[b].ts);
+  return cats[0];
+}
+function domandaDiCategoria(topic, cat, livello){
+  if(typeof topic.generaDomandaDi === 'function'){
+    try{ const q = topic.generaDomandaDi(cat, livello); if(q){ q.categoria = q.categoria || cat; return q; } }catch(e){ console.error(e); }
+  }
+  // ripiego generico: genera domande finché non ne esce una della categoria cercata
+  for(let t = 0; t < 80; t++){
+    const lv = t < 40 ? livello : 1 + (t % 4);
+    const q = topic.generaDomanda(lv, Math.floor(Math.random() * 1000));
+    if(q && q.categoria === cat) return q;
+  }
+  return null;
+}
+function ripassoEsito(cur, ok){
+  const cat = cur.q.categoria;
+  if(state.mode !== 'pratica' || !cat) return null;
+  state.ripasso = state.ripasso || {};
+  const r = state.ripasso[cat];
+  if(!ok){
+    if(cur.errato) return null;          // conta un solo errore per domanda
+    cur.errato = true;
+    state.normaliDaRipasso = 0;          // il ripasso arriva dopo una domanda normale
+    state.ripasso[cat] = { mancano: RIPASSO_OK, errori: (r ? r.errori : 0) + 1, ts: r ? r.ts : Date.now() };
+    return null;
+  }
+  if(!r || cur.errato) return null;
+  r.mancano -= 1;
+  if(r.mancano <= 0){
+    delete state.ripasso[cat];
+    state.superati[cat] = true;
+    return 'superato';
+  }
+  return 'avanti';
 }
 
 function drawQuestion(){
   const cur = state.current, q = cur.q;
   panel.innerHTML = `
     <div class="bonus-pop" id="bonusPop"></div>
+    ${cur.ripasso ? `<div class="rip-badge">Ripasso · ${U.esc(nomeCategoria(state.topicId, cur.ripasso))}</div>` : ''}
     <div class="instr">${q.istruzione || ''}</div>
     <div class="q-area" id="qArea"></div>
     <div class="rule-box" id="ruleBox" style="display:none;"></div>`;
@@ -528,8 +589,9 @@ function makeCtx(cur){
       state.score += base + bonus;
       state.correctCount += 1;
       if(mode === 'pratica') presAnswer(true, cur.q.categoria); else if(mode === 'gara') liveTouch();
+      const esito = ripassoEsito(cur, true);
       updateScore();
-      showBonus(bonus > 0 ? `+${base + bonus} (bonus velocità)` : `+${base}`, false);
+      showBonus(esito === 'superato' ? `+${base + bonus} · ripasso superato!` : bonus > 0 ? `+${base + bonus} (bonus velocità)` : `+${base}`, false);
       setTimeout(() => { if(state && state.current === cur) nextQuestion(); }, 600);
     },
     errata(html, avanza){
@@ -537,6 +599,7 @@ function makeCtx(cur){
       state.score = Math.max(0, state.score - 3);
       state.wrongCount += 1;
       if(mode === 'pratica') presAnswer(false, cur.q.categoria); else if(mode === 'gara') liveTouch();
+      ripassoEsito(cur, false);
       updateScore();
       showBonus('-3', true);
       if(mode === 'pratica') showRule(html, !!avanza);
