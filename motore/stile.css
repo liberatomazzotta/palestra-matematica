@@ -247,7 +247,9 @@ body.mosaic-page .foot{padding:10px 0 20px;}
 .choice-home{display:flex;flex-direction:column;gap:12px;width:100%;max-width:400px;}
 .homebtn{display:flex;flex-direction:column;gap:4px;text-align:left;padding:16px 18px;border-radius:14px;cursor:pointer;
   background:var(--panel);color:var(--chalk);border:2px solid rgba(242,240,230,0.14);font-family:var(--font-ui);transition:transform .12s,border-color .12s;}
-.homebtn:hover,.homebtn:focus-visible{transform:translateY(-2px);border-color:var(--yellow);outline:none;}
+/* il bordo resta sempre grigio: il "giallo rimasto" era lo stato hover che su schermi touch resta attivo dopo il tocco */
+.homebtn:focus{outline:none;}
+@media (hover:hover) and (pointer:fine){ .homebtn:hover{transform:translateY(-2px);background:rgba(255,255,255,0.06);} }
 .homebtn b{font-family:var(--font-hand);font-weight:400;font-size:26px;color:var(--yellow);}
 .homebtn span{font-size:13px;color:var(--chalk-dim);}
 
