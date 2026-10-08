@@ -350,7 +350,6 @@ body.mosaic-page .foot{padding:10px 0 20px;}
 .menu .field{margin:14px 0 10px;}
 .menu .levelrow{margin:8px 0;}
 .menu .startbtn{margin-top:18px;}
-.menu #backHome{margin-top:12px;}
 /* figure negli esercizi */
 .fig{display:block;width:100%;max-width:260px;height:auto;margin:4px auto 10px;}
 .fig.big{max-width:240px;}
@@ -379,3 +378,10 @@ body.mosaic-page .foot{padding:10px 0 20px;}
 @keyframes ga-bob{0%,100%{transform:translateY(0);}50%{transform:translateY(-4px);}}
 @keyframes ga-needle{from{transform:rotate(0);}to{transform:rotate(360deg);}}
 @media (prefers-reduced-motion: reduce){.mascotte.mini g{animation:none !important;}}
+
+/* pulsante Indietro: piccolo, in alto a sinistra del pannello */
+.menu{position:relative;}
+.backlink{position:absolute;top:0;left:0;margin:0;padding:6px 10px;min-height:32px;border-radius:8px;
+  background:transparent;border:1px solid transparent;color:var(--chalk-dim);font-family:var(--font-ui);font-size:13px;font-weight:600;cursor:pointer;}
+.backlink:focus-visible{outline:2px solid var(--chalk-dim);outline-offset:2px;}
+@media (hover:hover) and (pointer:fine){ .backlink:hover{color:var(--chalk);border-color:rgba(242,240,230,0.2);} }

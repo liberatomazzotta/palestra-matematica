@@ -409,7 +409,7 @@ function drawMenu(){
         <div class="board-note" id="nomeNote"></div>
       </div>`;
   const docente = '<button class="ghostbtn" id="teacherLink" style="margin-top:10px;opacity:0.75;">Cruscotto docente</button>';
-  const indietro = '<button class="ghostbtn" id="backHome">← Indietro</button>';
+  const indietro = '<button class="backlink" id="backHome" aria-label="Torna alla pagina iniziale">← Indietro</button>';
   let corpo;
 
   if(menuView === 'guidami'){
@@ -422,8 +422,7 @@ function drawMenu(){
       <label class="levelrow">Scegli l'argomento
         <select class="sel" id="topicSelG">${idG.map(id => `<option value="${U.esc(id)}">${U.esc(TOPICS[id].titolo)}</option>`).join('')}</select>
       </label>
-      <button class="startbtn" id="startGuidaBtn">Inizia il percorso guidato</button>` : '<div class="empty-board">Nessun argomento ha ancora un percorso guidato.</div>'}
-      ${indietro}`;
+      <button class="startbtn" id="startGuidaBtn">Inizia il percorso guidato</button>` : '<div class="empty-board">Nessun argomento ha ancora un percorso guidato.</div>'}`;
   } else if(menuView === 'allenamento'){
     const opzioni = ORDER.map(id => `<option value="${U.esc(id)}">${U.esc(TOPICS[id].titolo)}</option>`).join('');
     corpo = `
@@ -437,16 +436,14 @@ function drawMenu(){
       <label class="levelrow">Scegli il livello
         <select class="sel" id="livelloSel">${livelli.map(l => `<option value="${l[0]}"${String(praticaLivello) === l[0] ? ' selected' : ''}>${l[1]}</option>`).join('')}</select>
       </label>
-      <button class="startbtn" id="startPraticaBtn">Inizia l'allenamento</button>` : '<div class="empty-board">Nessun argomento installato.</div>'}
-      ${indietro}`;
+      <button class="startbtn" id="startPraticaBtn">Inizia l'allenamento</button>` : '<div class="empty-board">Nessun argomento installato.</div>'}`;
   } else if(menuView === 'gara'){
     corpo = `
       ${mascotteSezione('gara')}
       <div class="section-title">Gara</div>
       <div class="section-sub">La avvia il docente per tutti insieme: 3 manches, classifica finale con podio. L'argomento lo sceglie il docente: lo vedrai appena entri.</div>
       ${configured() ? '' : '<div class="board-note err">Gara non configurata: manca la configurazione Firebase in config.js. L\'allenamento funziona comunque.</div>'}
-      <button class="startbtn" id="joinGaraBtn" ${configured() ? '' : 'disabled'}>Entra in gara</button>
-      ${indietro}`;
+      <button class="startbtn" id="joinGaraBtn" ${configured() ? '' : 'disabled'}>Entra in gara</button>`;
   } else {
     corpo = `
       <div class="mascot-wrap" id="mascotWrap">${MASCOTTE}${MASCOTTE_TIP}</div>
@@ -469,6 +466,8 @@ function drawMenu(){
     if(sub > -1) k = corpo.indexOf('</div>', sub) + 6;
     html = corpo.slice(0, k) + campoNome + corpo.slice(k);
   }
+  // "Indietro" in alto a sinistra, come d'abitudine nelle app: sempre nello stesso punto e lontano dal pulsante principale
+  if(menuView !== 'home') html = indietro + html;
   panel.innerHTML = `<div class="menu">${html}</div>`;
 
   const q = id => document.getElementById(id);
