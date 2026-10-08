@@ -368,7 +368,6 @@ function drawMenu(){
       <label class="levelrow">Argomento
         <select class="sel" id="topicSel">${opzioni}</select>
       </label>
-      <div class="board-note" id="topicDesc"></div>
       <label class="levelrow">Livello
         <select class="sel" id="livelloSel">${livelli.map(l => `<option value="${l[0]}"${String(praticaLivello) === l[0] ? ' selected' : ''}>${l[1]}</option>`).join('')}</select>
       </label>
@@ -413,10 +412,8 @@ function drawMenu(){
   if(q('goGara')) q('goGara').addEventListener('click', () => setMenuView('gara'));
   if(q('backHome')) q('backHome').addEventListener('click', () => setMenuView('home'));
   if(q('topicSel')){
-    const aggiorna = () => { const t = TOPICS[q('topicSel').value]; q('topicDesc').textContent = t ? (t.descrizione || '') : ''; };
     if(menuTopic && TOPICS[menuTopic]) q('topicSel').value = menuTopic;
-    q('topicSel').addEventListener('change', () => { menuTopic = q('topicSel').value; aggiorna(); });
-    aggiorna();
+    q('topicSel').addEventListener('change', () => { menuTopic = q('topicSel').value; });
     q('startPraticaBtn').addEventListener('click', () => startPratica(q('topicSel').value));
   }
   if(q('livelloSel')) q('livelloSel').addEventListener('change', e => { praticaLivello = e.target.value; });
