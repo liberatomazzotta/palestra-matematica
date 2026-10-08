@@ -395,3 +395,4 @@ body.mosaic-page .foot{padding:10px 0 20px;}
 .credits p{margin:0;font-size:15px;line-height:1.6;color:var(--chalk);max-width:440px;}
 .credits .who{font-family:var(--font-hand);font-size:26px;color:var(--yellow);}
 a.backlink{text-decoration:none;display:inline-flex;align-items:center;}
+.center-screen.has-back{position:relative;padding-top:36px;}

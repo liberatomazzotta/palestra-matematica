@@ -1397,13 +1397,13 @@ function renderTeacherGate(errMsg){
   stopAll();
   state = null; updateScore(); renderHud('none'); setModeLabel('docente');
   panel.innerHTML = `
-    <div class="center-screen">
+    <div class="center-screen has-back">
+      <button class="backlink" id="pinBack" aria-label="Torna alla pagina iniziale">← Indietro</button>
       <h2>Cruscotto docente</h2>
       <input type="password" class="nameinput" id="pinInput" placeholder="Codice" autocomplete="off">
       <button class="startbtn" id="pinBtn" ${configured() ? '' : 'disabled'}>Entra</button>
       ${errMsg ? `<p class="board-note err">${U.esc(errMsg)}</p>` : ''}
       ${configured() ? '' : '<p class="board-note err">Manca la configurazione Firebase in config.js.</p>'}
-      <button class="ghostbtn" id="pinBack">Torna al menu</button>
     </div>`;
   const go = () => {
     if(document.getElementById('pinInput').value.trim() === TEACHER_PIN) renderTeacherPanel();
@@ -1423,7 +1423,8 @@ function renderTeacherPanel(){
   const opts = ORDER.map(id => `<option value="${U.esc(id)}">${U.esc(TOPICS[id].titolo)}</option>`).join('');
   const manchBtns = [1, 2, 3].map(n => `<button class="startbtn" data-m="${n}" disabled>Avvia Manche ${n}</button>`).join('');
   panel.innerHTML = `
-    <div class="center-screen">
+    <div class="center-screen has-back">
+      <button class="backlink" id="tBack" aria-label="Torna alla pagina iniziale">← Indietro</button>
       <h2>Cruscotto docente</h2>
       <p class="board-note" id="tStatus" style="opacity:1;">Connessione...</p>
       <div class="tbox">
@@ -1446,7 +1447,6 @@ function renderTeacherPanel(){
       </div>
       <div class="trow"><a class="ghostbtn" href="mosaico.html" target="_blank" rel="noopener" style="text-decoration:none;display:inline-block;">Vista alunni, classifica live e report ↗</a></div>
       <p class="board-note err" id="tErr" style="display:none;"></p>
-      <button class="ghostbtn" id="tBack">Torna al menu</button>
     </div>`;
 
   const ctx = { state: null, scores: [], ready: false, err: null, sessionId: null, unsubState: null, unsubScores: null, tick: null };
