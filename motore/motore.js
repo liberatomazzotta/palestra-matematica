@@ -1399,7 +1399,6 @@ function renderTeacherGate(errMsg){
   panel.innerHTML = `
     <div class="center-screen">
       <h2>Cruscotto docente</h2>
-      <p>Inserisci il codice per creare la gara e avviare le manches.</p>
       <input type="password" class="nameinput" id="pinInput" placeholder="Codice" autocomplete="off">
       <button class="startbtn" id="pinBtn" ${configured() ? '' : 'disabled'}>Entra</button>
       ${errMsg ? `<p class="board-note err">${U.esc(errMsg)}</p>` : ''}
