@@ -451,7 +451,7 @@ function drawMenu(){
     corpo = `
       ${mascotteSezione('gara')}
       <div class="section-title">Gara</div>
-      <div class="section-sub">Il docente avvia la gara per tutti insieme: sceglie argomento, numero di manches e squadre. Alla fine, classifica e podio.</div>
+      <div class="section-sub">Tutti contro tutti o gioco di squadre?</div>
       ${configured() ? '' : '<div class="board-note err">Gara non configurata: manca la configurazione Firebase in config.js. L\'allenamento funziona comunque.</div>'}
       <button class="startbtn" id="joinGaraBtn" ${configured() ? '' : 'disabled'}>Entra in gara</button>`;
   } else {
