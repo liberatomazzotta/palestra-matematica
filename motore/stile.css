@@ -334,7 +334,7 @@ body.mosaic-page .foot{padding:10px 0 20px;}
 @media (prefers-reduced-motion: reduce){.mascotte .m-lift,.mascotte .m-body,.mascotte .m-sweat,.mascotte .m-all{animation:none !important;}}
 
 .mascotte .m-stars{transform-box:fill-box;transform-origin:50% 50%;}
-.mascot-wrap{position:relative;display:flex;justify-content:center;width:100%;}
+.mascot-wrap{position:relative;display:flex;justify-content:center;width:fit-content;max-width:100%;margin:0 auto;}
 .mascotte{cursor:pointer;outline:none;}
 .mascot-tip{position:absolute;top:100%;left:50%;transform:translateX(-50%);z-index:20;width:280px;max-width:90vw;
   background:var(--board-dark);border:2px solid var(--yellow);border-radius:14px;padding:12px 14px;box-shadow:0 10px 30px rgba(0,0,0,.45);text-align:left;}

@@ -309,7 +309,12 @@ function attivaMascotte(){
       }
     }
   }
-  wrap.addEventListener('mouseenter', apri);
+  // si apre solo se il mouse si muove davvero sopra la mascotte (non quando la home ricompare sotto il puntatore fermo)
+  let mossoDopoApertura = false;
+  const segnaMovimento = () => { mossoDopoApertura = true; };
+  setTimeout(() => document.addEventListener('pointermove', segnaMovimento, { once: true }), 300);
+  svg.addEventListener('mouseenter', () => { if(mossoDopoApertura) apri(); });
+  svg.addEventListener('mousemove', () => { if(mossoDopoApertura && tip.hidden && !enigma) apri(); });
   wrap.addEventListener('mouseleave', () => chiudiPoi(500));
   svg.addEventListener('click', () => { if(tip.hidden){ apri(); inp.focus(); } else tip.hidden = true; });
   svg.addEventListener('keydown', e => { if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); apri(); inp.focus(); } });
