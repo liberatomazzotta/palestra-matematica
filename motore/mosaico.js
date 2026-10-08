@@ -21,6 +21,10 @@ let unsubs = [], tick = null, dbRef = null;
 function esc(s){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function configured(){ return !!FB.apiKey && String(FB.apiKey).indexOf('INSERISCI') !== 0; }
 
+// Accesso docente condiviso con il cruscotto (stesso browser): valido 6 ore
+const CHIAVE_DOC = 'palestra_docente_fino';
+function ricordaDocente(){ try{ localStorage.setItem(CHIAVE_DOC, String(Date.now() + 6 * 3600 * 1000)); }catch(e){} }
+function docenteRicordato(){ try{ return Number(localStorage.getItem(CHIAVE_DOC) || 0) > Date.now(); }catch(e){ return false; } }
 function gate(err){
   root.innerHTML = `<div class="mosaic-gate"><h1>Vista alunni</h1>
     <p>Inserisci il codice docente.</p>
@@ -28,7 +32,7 @@ function gate(err){
     <button class="startbtn" id="go">Entra</button>
     ${err ? '<p class="board-note err">Codice errato. Riprova.</p>' : ''}
     ${configured() ? '' : '<p class="board-note err">Manca la configurazione Firebase in config.js.</p>'}</div>`;
-  const ok = () => { if(document.getElementById('pin').value.trim() === PIN){ try{ sessionStorage.setItem('mos_ok', '1'); }catch(e){} start(); } else gate(true); };
+  const ok = () => { if(document.getElementById('pin').value.trim() === PIN){ ricordaDocente(); start(); } else gate(true); };
   document.getElementById('go').addEventListener('click', ok);
   const i = document.getElementById('pin');
   i.addEventListener('keydown', e => { if(e.key === 'Enter') ok(); });
@@ -402,6 +406,6 @@ function start(){
 }
 
 let ok = false;
-try{ ok = sessionStorage.getItem('mos_ok') === '1'; }catch(e){}
+ok = docenteRicordato();
 if(ok) start(); else gate();
 })();

@@ -1482,7 +1482,13 @@ async function renderFinalPodium(sessionId, tornaA){
 }
 
 // ================= CRUSCOTTO DOCENTE =================
+// Accesso docente ricordato su questo browser per 6 ore (vale anche per la Vista alunni)
+const CHIAVE_DOC = 'palestra_docente_fino';
+function ricordaDocente(){ try{ localStorage.setItem(CHIAVE_DOC, String(Date.now() + 6 * 3600 * 1000)); }catch(e){} }
+function docenteRicordato(){ try{ return Number(localStorage.getItem(CHIAVE_DOC) || 0) > Date.now(); }catch(e){ return false; } }
+function esciDocente(){ try{ localStorage.removeItem(CHIAVE_DOC); }catch(e){} renderMenu(); }
 function renderTeacherGate(errMsg){
+  if(!errMsg && docenteRicordato() && configured()){ renderTeacherPanel(); return; }
   stopAll();
   state = null; updateScore(); renderHud('none'); setModeLabel('docente');
   panel.innerHTML = `
@@ -1495,7 +1501,7 @@ function renderTeacherGate(errMsg){
       ${configured() ? '' : '<p class="board-note err">Manca la configurazione Firebase in config.js.</p>'}
     </div>`;
   const go = () => {
-    if(document.getElementById('pinInput').value.trim() === TEACHER_PIN) renderTeacherPanel();
+    if(document.getElementById('pinInput').value.trim() === TEACHER_PIN){ ricordaDocente(); renderTeacherPanel(); }
     else renderTeacherGate('Codice errato. Riprova.');
   };
   document.getElementById('pinBtn').addEventListener('click', go);
@@ -1518,9 +1524,12 @@ function renderTeacherPanel(){
         <a class="ttile" href="mosaico.html" target="_blank" rel="noopener"><span class="ti">📊</span><b>Vista alunni</b><span>Esercitazione, classifica live e report. Si apre in una nuova scheda.</span></a>
         <button class="ttile" id="tilePulizia"><span class="ti">🧹</span><b>Pulizia dati</b><span>Cancella i risultati delle gare e le presenze.</span></button>
       </div>
+      <button class="ghostbtn small" id="tEsci">Esci dal cruscotto</button>
+      <div class="board-note">L'accesso resta valido 6 ore su questo browser, anche per la Vista alunni. Su un computer condiviso premi "Esci".</div>
     </div>`;
   document.getElementById('tBack').addEventListener('click', renderMenu);
   document.getElementById('tileGara').addEventListener('click', () => renderTeacherGara());
+  document.getElementById('tEsci').addEventListener('click', esciDocente);
   document.getElementById('tilePulizia').addEventListener('click', renderTeacherPulizia);
 }
 
