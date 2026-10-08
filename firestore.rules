@@ -2,7 +2,8 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Stato della gara corrente: sessione, argomento, manche, orario di partenza.
+    // Stato della gara corrente: sessione, argomento, manche, orario di partenza,
+    // numero di manches (nManche), modalità (mode: singola/squadre) e squadre (teams).
     // Senza login non si può distinguere in modo sicuro il docente dagli alunni:
     // il codice docente nell'app è solo un filtro di interfaccia.
     match /game/state {
@@ -29,7 +30,7 @@ service cloud.firestore {
                     && request.resource.data.score < 100000
                     && request.resource.data.manche is number
                     && request.resource.data.manche >= 1
-                    && request.resource.data.manche <= 3;
+                    && request.resource.data.manche <= 10;
       allow update: if false;
       // Cancellazione consentita (pulsanti "Cancella" del Pannello docente). Senza login non si può
       // distinguere il docente: in teoria chi conosce l'app potrebbe cancellare i punteggi.
@@ -55,6 +56,18 @@ service cloud.firestore {
       allow delete: if true;
     }
 
+    // Iscritti alla gara (sala d'attesa del Cruscotto docente, per comporre le squadre).
+    match /players/{pid} {
+      allow read: if true;
+      allow create, update: if request.resource.data.keys().hasAll(['sessionId','name','ts'])
+                            && request.resource.data.sessionId is number
+                            && request.resource.data.name is string
+                            && request.resource.data.name.size() > 0
+                            && request.resource.data.name.size() <= 40
+                            && request.resource.data.ts is number;
+      allow delete: if true;
+    }
+
     // Punteggio parziale durante la manche (vista "Gara live" del docente).
     match /live/{lid} {
       allow read: if true;
@@ -62,7 +75,7 @@ service cloud.firestore {
                             && request.resource.data.sessionId is number
                             && request.resource.data.manche is number
                             && request.resource.data.manche >= 1
-                            && request.resource.data.manche <= 3
+                            && request.resource.data.manche <= 10
                             && request.resource.data.name is string
                             && request.resource.data.name.size() > 0
                             && request.resource.data.name.size() <= 40

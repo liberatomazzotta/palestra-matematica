@@ -138,7 +138,7 @@ function leaveGaraFlow(){
 }
 function leaveTeacherFlow(){
   if(!teacherCtx) return;
-  ['unsubState', 'unsubScores'].forEach(k => { if(teacherCtx[k]){ try{ teacherCtx[k](); }catch(e){} } });
+  ['unsubState', 'unsubScores', 'unsubPlayers'].forEach(k => { if(teacherCtx[k]){ try{ teacherCtx[k](); }catch(e){} } });
   if(teacherCtx.tick) clearInterval(teacherCtx.tick);
   teacherCtx = null;
 }
@@ -451,7 +451,7 @@ function drawMenu(){
     corpo = `
       ${mascotteSezione('gara')}
       <div class="section-title">Gara</div>
-      <div class="section-sub">La avvia il docente per tutti insieme: 3 manches, classifica finale con podio. L'argomento lo sceglie il docente: lo vedrai appena entri.</div>
+      <div class="section-sub">Il docente avvia la gara per tutti insieme: sceglie argomento, numero di manches e squadre. Alla fine, classifica e podio.</div>
       ${configured() ? '' : '<div class="board-note err">Gara non configurata: manca la configurazione Firebase in config.js. L\'allenamento funziona comunque.</div>'}
       <button class="startbtn" id="joinGaraBtn" ${configured() ? '' : 'disabled'}>Entra in gara</button>`;
   } else {
@@ -1065,11 +1065,28 @@ function entraInGara(name){
   setModeLabel('gara');
   renderHud('none');
   ctx.unsub = db.collection('game').doc('state').onSnapshot(
-    snap => { ctx.data = snap.exists ? snap.data() : null; ctx.ready = true; ctx.err = null; },
+    snap => { ctx.data = snap.exists ? snap.data() : null; ctx.ready = true; ctx.err = null; iscriviInGara(ctx); },
     err => { console.error(err); ctx.err = err; }
   );
   ctx.tickId = setInterval(garaTick, 250);
   garaTick();
+}
+
+// L'alunno compare nella sala d'attesa del docente (collezione "players"), una volta per gara
+function iscriviInGara(ctx){
+  const sid = ctx.data && ctx.data.sessionId;
+  if(!sid || ctx.iscritto === sid || !db) return;
+  ctx.iscritto = sid;
+  db.collection('players').doc(sid + '_' + presKey(ctx.name)).set({ sessionId: sid, name: ctx.name, ts: Date.now() })
+    .catch(e => { console.warn('iscrizione alla gara non riuscita', e); ctx.iscritto = null; });
+}
+// Riga "sei nella squadra..." per l'alunno
+function rigaSquadra(d, name){
+  if(!aSquadre(d)) return '';
+  const i = squadraDi(d, nameKey(name));
+  if(i < 0) return '<span class="tbadge">Il docente ti assegnerà a una squadra.</span>';
+  const t = d.teams[i];
+  return `<span class="tbadge" style="--sq:${t.colore}">${pallino(t)} Sei nella <b>${U.esc(nomeSquadra(t))}</b></span>`;
 }
 
 function garaTick(){
@@ -1096,9 +1113,11 @@ function garaTick(){
     return;
   }
   if(info.phase === 'idle'){
-    if(g.screen !== 'idle#' + info.sessionId){
-      g.screen = 'idle#' + info.sessionId;
-      renderMsg('In attesa...', `Argomento: <b style="color:var(--yellow)">${U.esc(topicTitle(info.topic))}</b>.<br>Il docente avvierà a breve la prima manche. Resta su questa pagina: partirà da sola per tutti insieme.`);
+    const key = 'idle#' + info.sessionId + '#' + squadraDi(g.data, nameKey(g.name)) + '#' + (aSquadre(g.data) ? 's' : 'i');
+    if(g.screen !== key){
+      g.screen = key;
+      const n = nMancheDi(g.data);
+      renderMsg('In attesa...', `Argomento: <b style="color:var(--yellow)">${U.esc(topicTitle(info.topic))}</b> · ${n} ${n === 1 ? 'manche' : 'manches'} da ${durataTesto(g.data.duration)}${aSquadre(g.data) ? ' · gara a squadre' : ''}.<br>Il docente avvierà a breve la prima manche. Resta su questa pagina: partirà da sola per tutti insieme.${rigaSquadra(g.data, g.name)}`);
     }
     return;
   }
@@ -1114,7 +1133,7 @@ function garaTick(){
       renderHud('none');
       setModeLabel('gara');
       panel.innerHTML = `<div class="center-screen"><h2>Si parte tra...</h2><div class="count-num" id="countNum">-</div>
-        <p>Manche ${info.manche} di ${N_MANCHES} — preparati!</p></div>`;
+        <p>Manche ${info.manche} di ${nMancheDi(g.data)} — preparati!</p>${rigaSquadra(g.data, g.name)}</div>`;
     }
     const n = document.getElementById('countNum');
     if(n){ const s = Math.max(0, Math.ceil(info.remaining / 1000)); n.textContent = s > 0 ? s : 'Via!'; }
@@ -1162,7 +1181,7 @@ function beginGara(info, rk){
   };
   setScoreVisible(true);
   updateScore();
-  setModeLabel(`manche ${info.manche} di ${N_MANCHES}`);
+  setModeLabel(`manche ${info.manche} di ${nMancheDi(garaCtx && garaCtx.data)}`);
   renderHud('gara');
   updateGaraBar(info.duration, info.duration);
   liveStart();
@@ -1197,6 +1216,8 @@ async function finishManche(){
   liveStop(true);
   const s = { sessionId: state.sessionId, topicId: state.topicId, name: state.name, score: state.score, manche: state.manche };
   const g = garaCtx;
+  const dati = (g && g.data) || {};
+  const nTot = nMancheDi(dati);
   const bar = document.getElementById('timerBar');
   if(bar) bar.style.width = '0%';
 
@@ -1218,7 +1239,7 @@ async function finishManche(){
   } else if(esito === 'lento' && note){
     note.textContent = 'Connessione lenta: il punteggio verrà inviato appena possibile.';
   } else if(note){
-    note.textContent = s.manche < N_MANCHES ? `In attesa che il docente avvii la Manche ${s.manche + 1}...` : '';
+    note.textContent = s.manche < nTot ? `In attesa che il docente avvii la Manche ${s.manche + 1}...` : '';
   }
 
   const myKey = nameKey(s.name);
@@ -1231,7 +1252,12 @@ async function finishManche(){
     mine.forEach(e => { const k = nameKey(e.name); if(!best[k] || e.score > best[k].score) best[k] = e; });
     const list = Object.values(best).sort((a, b) => b.score - a.score);
     const pos = list.findIndex(e => nameKey(e.name) === myKey);
-    host.innerHTML = `<div class="instr" style="margin-bottom:4px;">Classifica Manche ${s.manche}</div>` +
+    let sq = '';
+    if(aSquadre(dati)){
+      const valori = {}; list.forEach(e => { valori[nameKey(e.name)] = e.score; });
+      sq = `<div class="instr" style="margin-bottom:4px;">Squadre — Manche ${s.manche}</div>` + tabellaSquadre(classificaSquadre(dati, valori), squadraDi(dati, myKey), 'Media');
+    }
+    host.innerHTML = sq + `<div class="instr" style="margin:${sq ? '12px' : '0'} 0 4px;">Classifica Manche ${s.manche}</div>` +
       rankTable(list, myKey, 5) +
       (pos >= 5 ? `<div class="board-note" style="margin-top:6px;">La tua posizione: ${pos + 1}° su ${list.length}</div>` : '');
   }, err => {
@@ -1240,7 +1266,7 @@ async function finishManche(){
     if(host) host.innerHTML = '<div class="board-note err">Non riesco a leggere la classifica.</div>';
   });
 
-  if(s.manche >= N_MANCHES && esito !== 'errore'){
+  if(s.manche >= nTot && esito !== 'errore'){
     const act = document.getElementById('mancheActions');
     if(act){
       act.innerHTML = '<button class="startbtn" id="finalBtn">Classifica finale</button><button class="ghostbtn" id="menuBtn2">Torna al menu</button>';
@@ -1260,20 +1286,28 @@ async function finishManche(){
   }
 }
 
+function tabellaSquadre(classifica, mia, etichetta){
+  if(!classifica.length) return '';
+  const rows = classifica.map((c, i) => `<tr class="${c.i === mia ? 'me' : ''}"><td class="rank">${i + 1}</td>
+    <td class="name">${pallino(c.t)} ${U.esc(nomeSquadra(c.t))} <span class="dim">(${c.n}/${c.membri})</span></td><td class="pts">${c.media}</td></tr>`).join('');
+  return `<table class="board-table"><thead><tr><th></th><th>Squadra</th><th class="pts">${etichetta}</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+
 // ================= CLASSIFICA FINALE E PODIO =================
-function computeFinal(all){
-  const best = [{}, {}, {}];
+function computeFinal(all, nTot){
+  nTot = nTot || N_MANCHES;
+  const best = Array.from({ length: nTot }, () => ({}));
   const names = {};
   all.forEach(e => {
     const k = nameKey(e.name);
     const m = Number(e.manche);
-    if(!k || !(m >= 1 && m <= N_MANCHES)) return;
+    if(!k || !(m >= 1 && m <= nTot)) return;
     names[k] = names[k] || e.name;
     if(best[m - 1][k] === undefined || e.score > best[m - 1][k]) best[m - 1][k] = e.score;
   });
   const out = Object.keys(names).map(k => {
-    const m = [0, 1, 2].map(i => best[i][k] || 0);
-    return { name: names[k], m, total: m[0] + m[1] + m[2] };
+    const m = best.map(b => b[k] || 0);
+    return { key: k, name: names[k], m, total: m.reduce((a, x) => a + x, 0) };
   });
   out.sort((a, b) => b.total - a.total || Math.max.apply(null, b.m) - Math.max.apply(null, a.m) || a.name.localeCompare(b.name));
   return out;
@@ -1355,13 +1389,17 @@ async function renderFinalPodium(sessionId, tornaA){
   setModeLabel('classifica finale');
   let all = [];
   let errore = false;
+  let dati = {};
   try{
     if(!db) throw new Error('no db');
     const snap = await db.collection('scores').where('sessionId', '==', sessionId).get();
     all = snap.docs.map(d => d.data());
+    const st = await db.collection('game').doc('state').get();
+    if(st.exists && st.data().sessionId === sessionId) dati = st.data();
   }catch(e){ console.error(e); errore = true; }
   const back = () => (tornaA || renderMenu)();
-  const standings = computeFinal(all);
+  const nTot = nMancheDi(dati);
+  const standings = computeFinal(all, nTot);
   if(errore || !standings.length){
     panel.innerHTML = `<div class="center-screen"><h2>Classifica finale</h2>
       <p${errore ? ' class="board-note err"' : ''}>${errore ? 'Non riesco a leggere i punteggi.' : 'Nessun punteggio registrato in questa gara.'}</p>
@@ -1369,18 +1407,36 @@ async function renderFinalPodium(sessionId, tornaA){
     document.getElementById('podBack').addEventListener('click', back);
     return;
   }
-  const top = standings.slice(0, 3);
   const cls = ['gold', 'silver', 'bronze'], ico = ['🥇', '🥈', '🥉'];
-  const podium = top.map((e, i) => `<div class="podium-block ${cls[i]}"><div class="p-medal">${ico[i]}</div>
-    <div class="p-name">${U.esc(e.name)}</div><div class="p-pts">${e.total}</div></div>`).join('');
-  const rows = standings.slice(0, 20).map((e, i) => `<tr><td class="rank">${i + 1}</td><td class="name">${U.esc(e.name)}</td>
-    <td class="pts">${e.m[0]}</td><td class="pts">${e.m[1]}</td><td class="pts">${e.m[2]}</td><td class="pts">${e.total}</td></tr>`).join('');
+  const squadre = aSquadre(dati);
+  let podium, tabSq = '';
+  if(squadre){
+    const valori = {}; standings.forEach(e => { valori[e.key] = e.total; });
+    const cs = classificaSquadre(dati, valori);
+    podium = cs.slice(0, 3).map((c, i) => `<div class="podium-block ${cls[i]}"><div class="p-medal">${ico[i]}</div>
+      <div class="p-name">${pallino(c.t)} ${U.esc(nomeSquadra(c.t))}</div><div class="p-pts">${c.media}</div></div>`).join('');
+    tabSq = tabellaSquadre(cs, garaCtx ? squadraDi(dati, nameKey(garaCtx.name)) : -1, 'Media punti') +
+      '<div class="board-note" style="margin:4px 0 10px;">Punteggio di squadra = media dei punteggi totali dei componenti che hanno giocato.</div>';
+  } else {
+    podium = standings.slice(0, 3).map((e, i) => `<div class="podium-block ${cls[i]}"><div class="p-medal">${ico[i]}</div>
+      <div class="p-name">${U.esc(e.name)}</div><div class="p-pts">${e.total}</div></div>`).join('');
+  }
+  const colSq = squadre ? '<th>Squadra</th>' : '';
+  const rows = standings.slice(0, 30).map((e, i) => {
+    const si = squadre ? squadraDi(dati, e.key) : -1;
+    return `<tr><td class="rank">${i + 1}</td><td class="name">${U.esc(e.name)}</td>` +
+      (squadre ? `<td>${si > -1 ? pallino(dati.teams[si]) + ' ' + U.esc(dati.teams[si].nome) : '<span class="dim">—</span>'}</td>` : '') +
+      e.m.map(x => `<td class="pts">${x}</td>`).join('') + `<td class="pts">${e.total}</td></tr>`;
+  }).join('');
+  const head = `<tr><th></th><th>Alunno</th>${colSq}${Array.from({ length: nTot }, (_, i) => `<th class="pts">M${i + 1}</th>`).join('')}<th class="pts">Tot.</th></tr>`;
   panel.innerHTML = `
     <div class="center-screen">
       <div style="align-self:flex-end;margin-bottom:-8px;"><button class="ghostbtn" id="soundToggle" style="padding:4px 9px;font-size:14px;">${soundEnabled ? '🔊 Audio' : '🔇 Muto'}</button></div>
       <h2>Classifica finale</h2>
       <div class="podium-row">${podium}</div>
-      <table class="board-table"><thead><tr><th></th><th>Alunno</th><th class="pts">M1</th><th class="pts">M2</th><th class="pts">M3</th><th class="pts">Tot.</th></tr></thead><tbody>${rows}</tbody></table>
+      ${tabSq}
+      ${squadre ? '<div class="instr">Punteggi individuali</div>' : ''}
+      <table class="board-table wide"><thead>${head}</thead><tbody>${rows}</tbody></table>
       <button class="ghostbtn" id="podBack" style="margin-top:8px;">Indietro</button>
     </div>`;
   document.getElementById('podBack').addEventListener('click', back);
@@ -1392,7 +1448,7 @@ async function renderFinalPodium(sessionId, tornaA){
   playCelebration();
 }
 
-// ================= PANNELLO DOCENTE =================
+// ================= CRUSCOTTO DOCENTE =================
 function renderTeacherGate(errMsg){
   stopAll();
   state = null; updateScore(); renderHud('none'); setModeLabel('docente');
@@ -1415,92 +1471,340 @@ function renderTeacherGate(errMsg){
   document.getElementById('pinBack').addEventListener('click', renderMenu);
 }
 
+// Home del cruscotto: piastrelle con le funzioni principali
 function renderTeacherPanel(){
   stopAll();
   state = null; updateScore(); renderHud('none'); setModeLabel('docente');
   if(!db){ renderMsg('Non disponibile', 'Manca la configurazione Firebase.', { err: true }); return; }
-
-  const opts = ORDER.map(id => `<option value="${U.esc(id)}">${U.esc(TOPICS[id].titolo)}</option>`).join('');
-  const manchBtns = [1, 2, 3].map(n => `<button class="startbtn" data-m="${n}" disabled>Avvia Manche ${n}</button>`).join('');
   panel.innerHTML = `
     <div class="center-screen has-back">
       <button class="backlink" id="tBack" aria-label="Torna alla pagina iniziale">← Indietro</button>
       <h2>Cruscotto docente</h2>
-      <p class="board-note" id="tStatus" style="opacity:1;">Connessione...</p>
-      <div class="tbox">
-        <div class="instr">1 · Nuova gara</div>
-        <div class="trow"><select class="sel" id="tTopic">${opts}</select>
-        <button class="startbtn alt small" id="tNew">Crea nuova gara</button></div>
-        <div class="board-note">Ogni gara ha la sua classifica: non serve azzerare nulla.</div>
+      <div class="tgrid">
+        <button class="ttile" id="tileGara"><span class="ti">🏁</span><b>Gara</b><span>Argomento, numero e durata delle manches, tutti contro tutti o a squadre.</span></button>
+        <a class="ttile" href="mosaico.html" target="_blank" rel="noopener"><span class="ti">📊</span><b>Vista alunni</b><span>Esercitazione, classifica live e report. Si apre in una nuova scheda.</span></a>
+        <button class="ttile" id="tilePulizia"><span class="ti">🧹</span><b>Pulizia dati</b><span>Cancella i risultati delle gare e le presenze.</span></button>
       </div>
-      <div class="tbox">
-        <div class="instr">2 · Manches</div>
-        <div class="trow">${manchBtns}</div>
-        <div class="board-note" id="tSubmitted"></div>
-      </div>
-      <div class="trow"><button class="ghostbtn" id="tPodium" disabled>Classifica finale (podio)</button></div>
-      <div class="tbox">
-        <div class="instr">Pulizia dati</div>
-        <div class="trow"><button class="ghostbtn" id="tDelGara" disabled>Cancella i risultati di questa gara</button></div>
-        <div class="trow"><button class="ghostbtn" id="tDelAll">Cancella tutti i risultati e le presenze</button></div>
-        <div class="board-note" id="tDelNote"></div>
-      </div>
-      <div class="trow"><a class="ghostbtn" href="mosaico.html" target="_blank" rel="noopener" style="text-decoration:none;display:inline-block;">Vista alunni, classifica live e report ↗</a></div>
+    </div>`;
+  document.getElementById('tBack').addEventListener('click', renderMenu);
+  document.getElementById('tileGara').addEventListener('click', () => renderTeacherGara());
+  document.getElementById('tilePulizia').addEventListener('click', renderTeacherPulizia);
+}
+
+// ---------- impostazioni e squadre ----------
+const DURATE_S = [[60, '1 minuto'], [90, '1 minuto e mezzo'], [120, '2 minuti'], [180, '3 minuti'], [240, '4 minuti'], [300, '5 minuti']];
+const SQUADRE = [['Rossa', '#e06262'], ['Blu', '#7eb4d6'], ['Verde', '#8fbf8f'], ['Gialla', '#e8c468'], ['Viola', '#b48ce0'], ['Arancione', '#e8a05c']];
+const MAX_MANCHES = 5;
+function durataTesto(ms){
+  const sec = Math.round((ms || DURATA_MS) / 1000);
+  const x = DURATE_S.find(v => v[0] === sec);
+  return x ? x[1] : sec + ' secondi';
+}
+function nMancheDi(d){ return Math.max(1, Math.min(10, Number(d && d.nManche) || N_MANCHES)); }
+function aSquadre(d){ return !!(d && d.mode === 'squadre' && Array.isArray(d.teams) && d.teams.length); }
+function squadraDi(d, key){
+  if(!aSquadre(d)) return -1;
+  return d.teams.findIndex(t => Array.isArray(t.membri) && t.membri.indexOf(key) > -1);
+}
+function nomeSquadra(t){ return 'Squadra ' + (t && t.nome ? t.nome : ''); }
+function pallino(t){ return `<i class="tdot" style="background:${t && t.colore ? t.colore : 'var(--chalk-dim)'}"></i>`; }
+
+// Classifica delle squadre: media dei punteggi dei componenti che hanno giocato.
+// valori: { nameKey: punteggio }
+function classificaSquadre(d, valori){
+  if(!aSquadre(d)) return [];
+  return d.teams.map((t, i) => {
+    const giocato = (t.membri || []).filter(k => valori[k] !== undefined);
+    const somma = giocato.reduce((a, k) => a + valori[k], 0);
+    return { i, t, n: giocato.length, membri: (t.membri || []).length, media: giocato.length ? Math.round(somma / giocato.length) : 0 };
+  }).sort((a, b) => b.media - a.media || b.n - a.n);
+}
+
+// ---------- sezione Gara ----------
+function renderTeacherGara(){
+  stopAll();
+  state = null; updateScore(); renderHud('none'); setModeLabel('docente · gara');
+  panel.innerHTML = `
+    <div class="center-screen has-back tgara">
+      <button class="backlink" id="gBack" aria-label="Torna al cruscotto">← Cruscotto</button>
+      <h2>Gara</h2>
+      <div id="gBody" class="tgara-body"><div class="board-note">Connessione...</div></div>
       <p class="board-note err" id="tErr" style="display:none;"></p>
     </div>`;
-
-  const ctx = { state: null, scores: [], ready: false, err: null, sessionId: null, unsubState: null, unsubScores: null, tick: null };
+  const ctx = { state: null, ready: false, err: null, sessionId: null, players: [], scores: [], setup: false,
+    unsubState: null, unsubPlayers: null, unsubScores: null, tick: null, firmaPart: '' };
   teacherCtx = ctx;
+  document.getElementById('gBack').addEventListener('click', renderTeacherPanel);
 
   ctx.unsubState = db.collection('game').doc('state').onSnapshot(snap => {
     const d = snap.exists ? snap.data() : null;
     ctx.state = d; ctx.ready = true; ctx.err = null;
     const sid = d && d.sessionId ? d.sessionId : null;
     if(sid !== ctx.sessionId){
-      ctx.sessionId = sid;
-      ctx.scores = [];
-      if(ctx.unsubScores){ try{ ctx.unsubScores(); }catch(e){} ctx.unsubScores = null; }
+      ctx.sessionId = sid; ctx.players = []; ctx.scores = [];
+      ['unsubPlayers', 'unsubScores'].forEach(k => { if(ctx[k]){ try{ ctx[k](); }catch(e){} ctx[k] = null; } });
       if(sid){
+        ctx.unsubPlayers = db.collection('players').where('sessionId', '==', sid).onSnapshot(s => {
+          ctx.players = s.docs.map(x => x.data());
+          garaDisegna();
+        }, e => console.error(e));
         ctx.unsubScores = db.collection('scores').where('sessionId', '==', sid).onSnapshot(s => {
           ctx.scores = s.docs.map(x => x.data());
-          teacherLive();
+          garaStato();
         }, e => console.error(e));
       }
     }
-    teacherLive();
-  }, err => { console.error(err); ctx.err = err; teacherLive(); });
-  ctx.tick = setInterval(teacherLive, 500);
+    garaDisegna();
+  }, err => { console.error(err); ctx.err = err; garaDisegna(); });
+  ctx.tick = setInterval(garaStato, 500);
+}
+function garaErr(t){ const e = document.getElementById('tErr'); if(e){ e.style.display = t ? 'block' : 'none'; e.textContent = t || ''; } }
 
-  const showErr = t => { const e = document.getElementById('tErr'); if(e){ e.style.display = 'block'; e.textContent = t; } };
+// Disegna la parte giusta: impostazione (nessuna gara o "Nuova gara") oppure gestione della gara attiva
+function garaDisegna(force){
+  const t = teacherCtx;
+  const body = document.getElementById('gBody');
+  if(!t || !body) return;
+  if(t.err){ body.innerHTML = '<div class="board-note err">Non riesco a leggere lo stato della gara: controlla connessione e regole Firestore.</div>'; return; }
+  if(!t.ready) return;
+  if(t.setup || !t.state || !t.state.sessionId){
+    if(!body.querySelector('#sCrea')) garaImpostazione(body);
+    return;
+  }
+  if(!body.querySelector('#gStato') || force){
+    t.firmaPart = '';
+    garaGestione(body);
+  }
+  garaPartecipanti();
+  garaStato();
+}
 
-  document.getElementById('tNew').addEventListener('click', async () => {
-    const cur = ctx.state ? derivePhase(ctx.state, Date.now()) : null;
-    if(cur && (cur.phase === 'running' || cur.phase === 'countdown') && !window.confirm('Una manche è in corso. Creare comunque una nuova gara?')) return;
-    try{
-      await db.collection('game').doc('state').set({
-        sessionId: Date.now(), topic: document.getElementById('tTopic').value,
-        manche: 0, startAt: null, duration: DURATA_MS, updatedAt: Date.now()
-      });
-    }catch(e){ console.error(e); showErr('Operazione non riuscita: controlla connessione e regole Firestore.'); }
-  });
-  panel.querySelectorAll('[data-m]').forEach(b => b.addEventListener('click', async () => {
-    const s = ctx.state;
-    if(!s || !s.sessionId) return;
-    try{
-      await db.collection('game').doc('state').set({
-        sessionId: s.sessionId, topic: s.topic, manche: Number(b.getAttribute('data-m')),
-        startAt: Date.now() + CONTO_MS, duration: DURATA_MS, updatedAt: Date.now()
-      });
-    }catch(e){ console.error(e); showErr('Avvio non riuscito: controlla connessione e regole Firestore.'); }
+function garaImpostazione(body){
+  const t = teacherCtx, prev = (t && t.state) || {};
+  const opts = ORDER.map(id => `<option value="${U.esc(id)}"${prev.topic === id ? ' selected' : ''}>${U.esc(TOPICS[id].titolo)}</option>`).join('');
+  const nPrev = nMancheDi(prev), dPrev = Math.round((prev.duration || DURATA_MS) / 1000);
+  const modo = prev.mode === 'squadre' ? 'squadre' : 'singola';
+  const nSq = aSquadre(prev) ? prev.teams.length : 2;
+  body.innerHTML = `
+    <div class="tsec">
+      <div class="tsec-title">Nuova gara</div>
+      <label class="levelrow">Argomento<select class="sel" id="sTopic">${opts}</select></label>
+      <div class="tcols">
+        <label class="levelrow">Numero di manches
+          <select class="sel" id="sManche">${Array.from({ length: MAX_MANCHES }, (_, i) => i + 1).map(n => `<option value="${n}"${n === nPrev ? ' selected' : ''}>${n}</option>`).join('')}</select></label>
+        <label class="levelrow">Durata di ogni manche
+          <select class="sel" id="sDurata">${DURATE_S.map(x => `<option value="${x[0]}"${x[0] === dPrev ? ' selected' : ''}>${x[1]}</option>`).join('')}</select></label>
+      </div>
+      <div class="levelrow">Tipo di gara
+        <div class="seg" role="radiogroup">
+          <label><input type="radio" name="sModo" value="singola"${modo === 'singola' ? ' checked' : ''}><span>Tutti contro tutti</span></label>
+          <label><input type="radio" name="sModo" value="squadre"${modo === 'squadre' ? ' checked' : ''}><span>A squadre</span></label>
+        </div>
+      </div>
+      <label class="levelrow" id="sSqRow"${modo === 'squadre' ? '' : ' hidden'}>Numero di squadre
+        <select class="sel" id="sSquadre">${[2, 3, 4, 5, 6].map(n => `<option value="${n}"${n === nSq ? ' selected' : ''}>${n}</option>`).join('')}</select></label>
+      <div class="board-note" id="sNota">${modo === 'squadre' ? 'Dopo aver creato la gara, gli alunni entrano e tu li assegni alle squadre. Il punteggio di una squadra è la media dei suoi componenti.' : 'Classifica individuale con podio finale.'}</div>
+      <div class="trow">
+        <button class="startbtn" id="sCrea">Crea la gara</button>
+        ${t && t.state && t.state.sessionId ? '<button class="ghostbtn" id="sAnnulla">Annulla</button>' : ''}
+      </div>
+    </div>`;
+  const q = id => document.getElementById(id);
+  body.querySelectorAll('input[name="sModo"]').forEach(r => r.addEventListener('change', () => {
+    const sq = body.querySelector('input[name="sModo"]:checked').value === 'squadre';
+    q('sSqRow').hidden = !sq;
+    q('sNota').textContent = sq ? 'Dopo aver creato la gara, gli alunni entrano e tu li assegni alle squadre. Il punteggio di una squadra è la media dei suoi componenti.' : 'Classifica individuale con podio finale.';
   }));
-  document.getElementById('tPodium').addEventListener('click', () => {
-    const sid = ctx.sessionId;
-    if(!sid) return;
-    stopAll();
-    renderFinalPodium(sid, renderTeacherPanel);
+  if(q('sAnnulla')) q('sAnnulla').addEventListener('click', () => { t.setup = false; garaDisegna(true); });
+  q('sCrea').addEventListener('click', async () => {
+    const cur = t.state ? derivePhase(t.state, Date.now()) : null;
+    if(cur && (cur.phase === 'running' || cur.phase === 'countdown') && !window.confirm('Una manche è in corso. Creare comunque una nuova gara?')) return;
+    const modoSel = body.querySelector('input[name="sModo"]:checked').value;
+    const n = Number(q('sSquadre').value);
+    const teams = modoSel === 'squadre' ? SQUADRE.slice(0, n).map(x => ({ nome: x[0], colore: x[1], membri: [] })) : [];
+    q('sCrea').disabled = true;
+    try{
+      await db.collection('game').doc('state').set({
+        sessionId: Date.now(), topic: q('sTopic').value, nManche: Number(q('sManche').value),
+        manche: 0, startAt: null, duration: Number(q('sDurata').value) * 1000,
+        mode: modoSel, teams, updatedAt: Date.now()
+      });
+      t.setup = false;
+      garaErr('');
+    }catch(e){ console.error(e); q('sCrea').disabled = false; garaErr('Creazione non riuscita: controlla connessione e regole Firestore.'); }
   });
-  const delNote = t => { const n = document.getElementById('tDelNote'); if(n){ n.className = 'board-note'; n.textContent = t; } };
-  const delErr = t => { const n = document.getElementById('tDelNote'); if(n){ n.className = 'board-note err'; n.textContent = t; } };
+}
+
+function garaGestione(body){
+  const t = teacherCtx, d = t.state;
+  const durTxt = (DURATE_S.find(x => x[0] * 1000 === d.duration) || [0, Math.round(d.duration / 1000) + ' secondi'])[1];
+  const n = nMancheDi(d);
+  body.innerHTML = `
+    <div class="tsec">
+      <div class="tsec-head">
+        <div><div class="tsec-title">${U.esc(topicTitle(d.topic))}</div>
+        <div class="tsum">${n} ${n === 1 ? 'manche' : 'manches'} da ${durTxt} · ${aSquadre(d) ? d.teams.length + ' squadre' : 'tutti contro tutti'}</div></div>
+        <button class="ghostbtn small" id="gNuova">Nuova gara</button>
+      </div>
+      <div class="gstato" id="gStato"></div>
+      <div class="trow">
+        <button class="startbtn" id="gAvvia" disabled>Avvia</button>
+        <button class="ghostbtn" id="gPodio" hidden>Classifica finale (podio)</button>
+      </div>
+    </div>
+    <div class="tsec">
+      <div class="tsec-title" id="gPartTitle">Alunni in gara</div>
+      <div id="gPart"></div>
+    </div>`;
+  document.getElementById('gNuova').addEventListener('click', () => {
+    const cur = derivePhase(t.state, Date.now());
+    if((cur.phase === 'running' || cur.phase === 'countdown') && !window.confirm('Una manche è in corso. Vuoi davvero impostare una nuova gara?')) return;
+    t.setup = true; garaDisegna(true);
+  });
+  document.getElementById('gAvvia').addEventListener('click', async () => {
+    const s = t.state, info = derivePhase(s, Date.now());
+    const prossima = info.phase === 'idle' ? 1 : info.manche + 1;
+    if(prossima > nMancheDi(s)) return;
+    if(prossima === 1 && aSquadre(s)){
+      const assegnati = new Set([].concat(...s.teams.map(x => x.membri || [])));
+      const fuori = t.players.filter(p => !assegnati.has(nameKey(p.name)));
+      const vuote = s.teams.filter(x => !(x.membri || []).length).length;
+      if(vuote && !window.confirm(`${vuote === 1 ? 'Una squadra è vuota' : vuote + ' squadre sono vuote'}. Avviare comunque?`)) return;
+      if(fuori.length && !window.confirm(`${fuori.length} ${fuori.length === 1 ? 'alunno non è' : 'alunni non sono'} in nessuna squadra: giocheranno, ma non conteranno per le squadre. Avviare comunque?`)) return;
+    }
+    try{
+      await db.collection('game').doc('state').set({
+        manche: prossima, startAt: Date.now() + CONTO_MS, updatedAt: Date.now()
+      }, { merge: true });
+      garaErr('');
+    }catch(e){ console.error(e); garaErr('Avvio non riuscito: controlla connessione e regole Firestore.'); }
+  });
+  document.getElementById('gPodio').addEventListener('click', () => {
+    const sid = t.sessionId; if(!sid) return;
+    stopAll();
+    renderFinalPodium(sid, () => renderTeacherGara());
+  });
+}
+
+// Stato e pulsante "Avvia" (aggiornati ogni mezzo secondo)
+function garaStato(){
+  const t = teacherCtx;
+  const st = document.getElementById('gStato');
+  if(!t || !st || !t.state) return;
+  const d = t.state, info = derivePhase(d, Date.now()), n = nMancheDi(d);
+  const btn = document.getElementById('gAvvia'), pod = document.getElementById('gPodio');
+  let txt, prossima = 0;
+  if(info.phase === 'idle'){ txt = 'Gara pronta: gli alunni possono entrare.'; prossima = 1; }
+  else if(info.phase === 'countdown') txt = `Manche ${info.manche} di ${n}: si parte tra ${Math.ceil(info.remaining / 1000)} s.`;
+  else if(info.phase === 'running') txt = `Manche ${info.manche} di ${n} in corso: ${Math.ceil(info.remaining / 1000)} s rimanenti.`;
+  else {
+    const consegnati = new Set(t.scores.filter(e => e.manche === info.manche).map(e => nameKey(e.name))).size;
+    txt = `Manche ${info.manche} di ${n} terminata · punteggi consegnati: ${consegnati}.`;
+    prossima = info.manche < n ? info.manche + 1 : 0;
+  }
+  st.textContent = txt;
+  if(btn){
+    btn.hidden = !prossima;
+    btn.disabled = !prossima;
+    btn.textContent = prossima ? `Avvia la manche ${prossima}` : 'Avvia';
+  }
+  if(pod) pod.hidden = !(info.phase === 'finished' && info.manche >= n);
+  // squadre bloccate mentre si gioca
+  const blocca = info.phase === 'countdown' || info.phase === 'running';
+  document.querySelectorAll('#gPart select, #gPart .chip-x, #gPart .gpbtn').forEach(el => { el.disabled = blocca; });
+}
+
+// Elenco degli alunni entrati e composizione delle squadre
+function garaPartecipanti(){
+  const t = teacherCtx;
+  const host = document.getElementById('gPart');
+  if(!t || !host || !t.state) return;
+  const d = t.state;
+  const nomi = {};
+  t.players.forEach(p => { nomi[nameKey(p.name)] = p.name; });
+  const tutti = Object.keys(nomi).sort((a, b) => nomi[a].localeCompare(nomi[b], 'it'));
+  const firma = JSON.stringify([tutti, aSquadre(d) ? d.teams.map(x => x.membri) : 0]);
+  if(firma === t.firmaPart) return;   // niente da ridisegnare (non si perdono le selezioni in corso)
+  t.firmaPart = firma;
+  const title = document.getElementById('gPartTitle');
+  if(title) title.textContent = `Alunni in gara (${tutti.length})`;
+  const nome = k => U.esc(nomi[k] || k);
+
+  if(!aSquadre(d)){
+    host.innerHTML = tutti.length
+      ? `<div class="chips">${tutti.map(k => `<span class="chip">${nome(k)}</span>`).join('')}</div>`
+      : '<div class="empty-board">Nessun alunno ancora. Chiedi agli alunni di aprire Gara e premere "Entra in gara".</div>';
+    garaStato();
+    return;
+  }
+  const assegnati = new Set([].concat(...d.teams.map(x => x.membri || [])));
+  const liberi = tutti.filter(k => !assegnati.has(k));
+  const opzLiberi = liberi.map(k => `<option value="${U.esc(k)}">${nome(k)}</option>`).join('');
+  const cards = d.teams.map((sq, i) => `
+    <div class="tcard" style="--sq:${sq.colore}">
+      <div class="tcard-head">${pallino(sq)} ${U.esc(nomeSquadra(sq))} <span class="dim">(${(sq.membri || []).length})</span></div>
+      <div class="chips">${(sq.membri || []).map(k => `<span class="chip">${nome(k)}${nomi[k] ? '' : ' <em class="dim">(uscito)</em>'}<button class="chip-x" data-t="${i}" data-k="${U.esc(k)}" aria-label="Togli">×</button></span>`).join('') || '<span class="dim">Nessun componente</span>'}</div>
+      <select class="sel small" data-add="${i}"${liberi.length ? '' : ' disabled'}><option value="">+ Aggiungi alunno…</option>${opzLiberi}</select>
+    </div>`).join('');
+  host.innerHTML = `
+    <div class="trow">
+      <button class="ghostbtn small gpbtn" id="gCaso"${tutti.length ? '' : ' disabled'}>Distribuisci a caso</button>
+      <button class="ghostbtn small gpbtn" id="gSvuota">Svuota le squadre</button>
+    </div>
+    <div class="tcards">${cards}</div>
+    <div class="tcard libero">
+      <div class="tcard-head">Senza squadra <span class="dim">(${liberi.length})</span></div>
+      <div class="chips">${liberi.map(k => `<span class="chip">${nome(k)}</span>`).join('') || `<span class="dim">${tutti.length ? 'Tutti gli alunni sono in una squadra.' : 'Nessun alunno ancora: compaiono qui quando premono "Entra in gara".'}</span>`}</div>
+    </div>`;
+
+  const salva = async teams => {
+    try{ await db.collection('game').doc('state').set({ teams, updatedAt: Date.now() }, { merge: true }); garaErr(''); }
+    catch(e){ console.error(e); garaErr('Salvataggio delle squadre non riuscito: controlla connessione e regole Firestore.'); }
+  };
+  const copia = () => d.teams.map(x => Object.assign({}, x, { membri: (x.membri || []).slice() }));
+  host.querySelectorAll('select[data-add]').forEach(sel => sel.addEventListener('change', () => {
+    if(!sel.value) return;
+    const teams = copia();
+    teams.forEach(x => { x.membri = x.membri.filter(k => k !== sel.value); });
+    teams[Number(sel.getAttribute('data-add'))].membri.push(sel.value);
+    salva(teams);
+  }));
+  host.querySelectorAll('.chip-x').forEach(b => b.addEventListener('click', () => {
+    const teams = copia();
+    const i = Number(b.getAttribute('data-t')), k = b.getAttribute('data-k');
+    teams[i].membri = teams[i].membri.filter(x => x !== k);
+    salva(teams);
+  }));
+  document.getElementById('gCaso').addEventListener('click', () => {
+    if(assegnati.size && !window.confirm('Ridistribuire a caso TUTTI gli alunni? Le squadre attuali verranno rifatte.')) return;
+    const teams = copia(); teams.forEach(x => { x.membri = []; });
+    U.shuffle(tutti.slice()).forEach((k, i) => teams[i % teams.length].membri.push(k));
+    salva(teams);
+  });
+  document.getElementById('gSvuota').addEventListener('click', () => {
+    if(!assegnati.size || !window.confirm('Togliere tutti gli alunni dalle squadre?')) return;
+    salva(copia().map(x => Object.assign(x, { membri: [] })));
+  });
+  garaStato();
+}
+
+// ---------- sezione Pulizia dati ----------
+function renderTeacherPulizia(){
+  stopAll();
+  state = null; updateScore(); renderHud('none'); setModeLabel('docente · pulizia dati');
+  panel.innerHTML = `
+    <div class="center-screen has-back">
+      <button class="backlink" id="pBack" aria-label="Torna al cruscotto">← Cruscotto</button>
+      <h2>Pulizia dati</h2>
+      <div class="tsec">
+        <div class="trow"><button class="ghostbtn" id="tDelGara">Cancella i risultati della gara attuale</button></div>
+        <div class="trow"><button class="ghostbtn" id="tDelAll">Cancella tutti i risultati e le presenze</button></div>
+        <div class="board-note">Le presenze contengono anche lo storico del Report: scarica prima il CSV dalla Vista alunni.</div>
+        <div class="board-note" id="tDelNote"></div>
+      </div>
+    </div>`;
+  document.getElementById('pBack').addEventListener('click', renderTeacherPanel);
+  const delNote = (txt, err) => { const n = document.getElementById('tDelNote'); if(n){ n.className = 'board-note' + (err ? ' err' : ''); n.textContent = txt; } };
   async function cancella(descr, queries){
     if(!window.confirm(descr + '\n\nL\'operazione non si può annullare. Continuare?')) return;
     delNote('Cancellazione in corso...');
@@ -1508,19 +1812,21 @@ function renderTeacherPanel(){
       let tot = 0;
       for(const q of queries) tot += await deleteAll(q);
       delNote(tot ? `Cancellati ${tot} elementi.` : 'Non c\'era nulla da cancellare.');
-    }catch(e){ console.error(e); delErr('Cancellazione non riuscita: controlla connessione e regole Firestore (devono permettere la cancellazione).'); }
+    }catch(e){ console.error(e); delNote('Cancellazione non riuscita: controlla connessione e regole Firestore (devono permettere la cancellazione).', true); }
   }
-  document.getElementById('tDelGara').addEventListener('click', () => {
-    const sid = ctx.sessionId; if(!sid) return;
-    cancella('Cancellare i punteggi e i dati live della gara corrente?', [
+  document.getElementById('tDelGara').addEventListener('click', async () => {
+    let sid = null;
+    try{ const s = await db.collection('game').doc('state').get(); sid = s.exists ? s.data().sessionId : null; }catch(e){ console.error(e); }
+    if(!sid){ delNote('Nessuna gara attuale.'); return; }
+    cancella('Cancellare i punteggi, i dati live e gli iscritti della gara attuale?', [
       db.collection('scores').where('sessionId', '==', sid),
-      db.collection('live').where('sessionId', '==', sid)]);
+      db.collection('live').where('sessionId', '==', sid),
+      db.collection('players').where('sessionId', '==', sid)]);
   });
   document.getElementById('tDelAll').addEventListener('click', () => {
     cancella('Cancellare TUTTI i punteggi di tutte le gare e tutte le presenze degli alunni?', [
-      db.collection('scores'), db.collection('live'), db.collection('presence')]);
+      db.collection('scores'), db.collection('live'), db.collection('presence'), db.collection('players')]);
   });
-  document.getElementById('tBack').addEventListener('click', renderMenu);
 }
 
 // Cancella tutti i documenti di una query, a gruppi (Firestore ammette al massimo 500 operazioni per gruppo).
@@ -1536,42 +1842,6 @@ async function deleteAll(query){
     if(snap.size < 400) break;
   }
   return n;
-}
-
-function teacherLive(){
-  const t = teacherCtx;
-  if(!t) return;
-  const st = document.getElementById('tStatus');
-  if(!st) return;
-  if(t.err){ st.className = 'board-note err'; st.textContent = 'Non riesco a leggere lo stato: controlla connessione e regole Firestore.'; return; }
-  if(!t.ready){ st.textContent = 'Connessione...'; return; }
-  st.className = 'board-note';
-  const info = derivePhase(t.state, Date.now());
-  let txt, next = 0, enabled = true;
-  switch(info.phase){
-    case 'nogara': txt = 'Nessuna gara attiva. Scegli l\'argomento e crea una nuova gara.'; enabled = false; break;
-    case 'idle': txt = `Gara pronta — argomento: ${topicTitle(info.topic)}. Avvia la Manche 1.`; next = 1; break;
-    case 'countdown': txt = `Manche ${info.manche}: si parte tra ${Math.ceil(info.remaining / 1000)}s.`; enabled = false; break;
-    case 'running': txt = `Manche ${info.manche} in corso — ${Math.ceil(info.remaining / 1000)}s rimanenti.`; enabled = false; break;
-    default: txt = `Manche ${info.manche} terminata.` + (info.manche < N_MANCHES ? ` Puoi avviare la Manche ${info.manche + 1}.` : ' Mostra la classifica finale.'); next = Math.min(info.manche + 1, N_MANCHES);
-  }
-  st.textContent = txt;
-  document.querySelectorAll('[data-m]').forEach(b => {
-    const n = Number(b.getAttribute('data-m'));
-    b.disabled = !enabled;
-    b.classList.toggle('dim', n !== next);
-  });
-  const pod = document.getElementById('tPodium');
-  if(pod) pod.disabled = !t.sessionId;
-  const dg = document.getElementById('tDelGara');
-  if(dg) dg.disabled = !t.sessionId;
-  const sub = document.getElementById('tSubmitted');
-  if(sub){
-    if(info.manche >= 1){
-      const set = new Set(t.scores.filter(e => e.manche === info.manche).map(e => nameKey(e.name)));
-      sub.textContent = `Punteggi consegnati nella Manche ${info.manche}: ${set.size}`;
-    } else sub.textContent = '';
-  }
 }
 
 // ================= AVVIO =================

@@ -50,10 +50,14 @@ Se i Chromebook della scuola bloccano `github.io`, usa **Firebase Hosting** (`we
 ## Uso in classe
 
 1. Alunni: aprono il link, scrivono Cognome e Nome, scelgono **Allenamento** (poi argomento da elenco a discesa e livello) oppure **Gara**.
-2. Pausa o fine riscaldamento: gli alunni premono **Entra in gara** e restano in attesa.
-3. Docente: link **Cruscotto docente** in fondo alla home → codice → scegli l'argomento → **Crea nuova gara** → **Avvia Manche 1**.
-   Il pannello mostra in tempo reale lo stato e quanti punteggi sono stati consegnati.
-4. Dopo la Manche 3: **Classifica finale (podio)** dal pannello (o dal pulsante che compare agli alunni).
+2. Docente: link **Cruscotto docente** in fondo alla home → codice → piastrella **Gara** → scegli argomento, numero di manches (1–5), durata (1–5 minuti) e tipo: **tutti contro tutti** o **a squadre** (2–6 squadre) → **Crea la gara**.
+3. Alunni: **Gara** → Cognome e Nome → **Entra in gara**. Compaiono nell'elenco "Alunni in gara" del docente.
+4. A squadre: il docente assegna gli alunni con "+ Aggiungi alunno…" su ogni squadra (× per toglierli) oppure **Distribuisci a caso**. Ogni alunno vede la propria squadra. Punteggio di squadra = media dei punteggi dei componenti che hanno giocato.
+5. **Avvia la manche 1**, poi le successive; dopo l'ultima: **Classifica finale (podio)** (anche gli alunni hanno il pulsante).
+
+Il cruscotto ha tre piastrelle: **Gara**, **Vista alunni** (si apre in una nuova scheda), **Pulizia dati**.
+
+**Regole Firestore**: questa versione usa la collezione `players` (iscritti alla gara) e manches fino a 10. Se non l'hai già fatto, ripubblica `firestore.rules` (Console Firebase → Firestore → Regole → incolla → Pubblica), altrimenti gli alunni non compaiono nell'elenco.
 
 ## Vista alunni (esercitazione e gara)
 

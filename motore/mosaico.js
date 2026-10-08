@@ -150,18 +150,35 @@ function fase(d, now){
   else info.phase = 'finished';
   return info;
 }
+function nManche(){ return Math.max(1, Math.min(10, Number(gameState && gameState.nManche) || 3)); }
+function aSquadre(){ return !!(gameState && gameState.mode === 'squadre' && Array.isArray(gameState.teams) && gameState.teams.length); }
+function squadraDi(k){ return aSquadre() ? gameState.teams.findIndex(t => (t.membri || []).indexOf(k) > -1) : -1; }
+function dot(t){ return `<i class="tdot" style="background:${t.colore || 'var(--chalk-dim)'}"></i>`; }
+// media dei componenti che hanno un punteggio
+function classificaSquadre(valori){
+  if(!aSquadre()) return [];
+  return gameState.teams.map(t => {
+    const g = (t.membri || []).filter(k => valori[k] !== undefined);
+    return { t, n: g.length, membri: (t.membri || []).length, media: g.length ? Math.round(g.reduce((a, k) => a + valori[k], 0) / g.length) : 0 };
+  }).sort((a, b) => b.media - a.media || b.n - a.n);
+}
+function tabellaSquadre(cs, titolo){
+  if(!cs.length) return '';
+  const tr = cs.map((c, i) => `<tr><td class="rank">${i + 1}</td><td class="name">${dot(c.t)} Squadra ${esc(c.t.nome)} <span class="dim">(${c.n}/${c.membri})</span></td><td class="pts tot">${c.media}</td></tr>`).join('');
+  return `<div class="mcol"><h2>${titolo}</h2><table class="board-table"><thead><tr><th></th><th>Squadra</th><th class="pts">Media</th></tr></thead><tbody>${tr}</tbody></table></div>`;
+}
 function standings(excludeManche){
   // migliore punteggio per nome e manche, dalla collezione scores
-  const best = {}, names = {};
+  const best = {}, names = {}, N = nManche();
   scoreDocs.forEach(e => {
     const k = String(e.name || '').trim().replace(/\s+/g, ' ').toLowerCase();
     const m = Number(e.manche);
-    if(!k || !(m >= 1 && m <= 3) || m === excludeManche) return;
+    if(!k || !(m >= 1 && m <= N) || m === excludeManche) return;
     names[k] = names[k] || e.name;
-    best[k] = best[k] || [0, 0, 0];
+    best[k] = best[k] || new Array(N).fill(0);
     if(e.score > best[k][m - 1]) best[k][m - 1] = e.score;
   });
-  return Object.keys(names).map(k => ({ key: k, name: names[k], m: best[k], total: best[k][0] + best[k][1] + best[k][2] }));
+  return Object.keys(names).map(k => ({ key: k, name: names[k], m: best[k], total: best[k].reduce((a, x) => a + x, 0) }));
 }
 function keyOf(n){ return String(n || '').trim().replace(/\s+/g, ' ').toLowerCase(); }
 function tableManche(n){
@@ -171,15 +188,20 @@ function tableManche(n){
   rows.forEach(e => { const k = keyOf(e.name); if(!best[k] || e.score > best[k].score) best[k] = e; });
   const list = Object.values(best).sort((a, b) => b.score - a.score || String(a.name).localeCompare(String(b.name), 'it'));
   const tr = list.map((e, i) => `<tr><td class="rank">${i + 1}</td><td class="name">${esc(e.name)}</td><td class="pts">${e.score}</td></tr>`).join('');
-  return `<div class="mcol"><h2>Classifica Manche ${n}</h2>${list.length
+  let sq = '';
+  if(aSquadre()){ const v = {}; list.forEach(e => { v[keyOf(e.name)] = e.score; }); sq = tabellaSquadre(classificaSquadre(v), `Squadre — Manche ${n}`); }
+  return sq + `<div class="mcol"><h2>Classifica Manche ${n}</h2>${list.length
     ? `<table class="board-table"><thead><tr><th></th><th>Alunno</th><th class="pts">Punti</th></tr></thead><tbody>${tr}</tbody></table>`
     : '<div class="empty-board">Ancora nessun punteggio.</div>'}</div>`;
 }
 function tableGenerale(){
   const list = standings(0).sort((a, b) => b.total - a.total || Math.max.apply(null, b.m) - Math.max.apply(null, a.m) || String(a.name).localeCompare(String(b.name), 'it'));
-  const tr = list.map((e, i) => `<tr><td class="rank">${i + 1}</td><td class="name">${esc(e.name)}</td><td class="pts">${e.m[0] || '–'}</td><td class="pts">${e.m[1] || '–'}</td><td class="pts">${e.m[2] || '–'}</td><td class="pts tot">${e.total}</td></tr>`).join('');
-  return `<div class="mcol"><h2>Classifica generale</h2>${list.length
-    ? `<table class="board-table"><thead><tr><th></th><th>Alunno</th><th class="pts">M1</th><th class="pts">M2</th><th class="pts">M3</th><th class="pts">Tot</th></tr></thead><tbody>${tr}</tbody></table>`
+  const N = nManche();
+  const tr = list.map((e, i) => `<tr><td class="rank">${i + 1}</td><td class="name">${esc(e.name)}</td>${e.m.map(x => `<td class="pts">${x || '–'}</td>`).join('')}<td class="pts tot">${e.total}</td></tr>`).join('');
+  let sq = '';
+  if(aSquadre()){ const v = {}; list.forEach(e => { v[e.key] = e.total; }); sq = tabellaSquadre(classificaSquadre(v), 'Classifica generale squadre'); }
+  return sq + `<div class="mcol"><h2>Classifica generale</h2>${list.length
+    ? `<table class="board-table"><thead><tr><th></th><th>Alunno</th>${Array.from({ length: N }, (_, i) => `<th class="pts">M${i + 1}</th>`).join('')}<th class="pts">Tot</th></tr></thead><tbody>${tr}</tbody></table>`
     : '<div class="empty-board">Ancora nessun punteggio.</div>'}</div>`;
 }
 function mmss(ms){ const s = Math.max(0, Math.ceil(ms / 1000)); return String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0'); }
@@ -188,7 +210,7 @@ function renderGara(){
   const now = Date.now();
   const f = fase(gameState, now);
   if(f.phase === 'nogara') return { bar: '', body: '<div class="empty-board">Nessuna gara creata. Creala dal Cruscotto docente.</div>' };
-  const titolo = f.manche ? `Manche ${f.manche} di 3` : 'Gara pronta';
+  const titolo = f.manche ? `Manche ${f.manche} di ${nManche()}` : 'Gara pronta';
   if(f.phase === 'idle') return { bar: `<span>${titolo}</span>`, body: '<div class="empty-board">In attesa dell\'avvio della manche.</div>' + (scoreDocs.size ? tableGenerale() : '') };
   if(f.phase === 'countdown') return { bar: `<span>${titolo} · via tra <b>${Math.ceil(f.remaining / 1000)}</b></span>`, body: '<div class="empty-board" style="font-size:42px;">Pronti…</div>' };
   if(f.phase === 'running'){
@@ -203,8 +225,18 @@ function renderGara(){
       <div class="lscore">${d.score}</div>
       <div class="lsub"><b class="g">${d.correct || 0}</b>/<b class="r">${d.wrong || 0}</b></div>
       <div class="ltot">tot ${(prev[keyOf(d.name)] || 0) + d.score}</div></div>`).join('');
+    // a squadre: barre della media live di ogni squadra sopra la lista individuale
+    let sq = '';
+    if(aSquadre()){
+      const v = {}; rows.forEach(d => { v[keyOf(d.name)] = d.score; });
+      const cs = classificaSquadre(v), mx = Math.max(1, cs.length ? cs[0].media : 1);
+      sq = `<div class="llist tlist">${cs.map((c, i) => `<div class="lrow"><div class="lpos">${i + 1}</div>
+        <div class="lname">${dot(c.t)} Squadra ${esc(c.t.nome)}</div>
+        <div class="lbar"><div style="width:${Math.max(2, c.media / mx * 100)}%;background:${c.t.colore}"></div></div>
+        <div class="lscore">${c.media}</div><div class="lsub">${c.n}/${c.membri}</div><div class="ltot">media</div></div>`).join('')}</div>`;
+    }
     return { bar: `<span>${titolo} · <b>${mmss(f.remaining)}</b></span><span><b>${rows.length}</b> in gara</span>`,
-      body: `<div class="llist">${li || '<div class="empty-board">Aspetto i primi punteggi…</div>'}</div>` };
+      body: sq + `<div class="llist">${li || '<div class="empty-board">Aspetto i primi punteggi…</div>'}</div>` };
   }
   // finished: classifica manche + generale
   return { bar: `<span>${titolo} conclusa</span>`, body: `<div class="mcols">${tableManche(f.manche)}${tableGenerale()}</div>` };
