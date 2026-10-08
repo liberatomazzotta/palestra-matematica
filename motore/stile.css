@@ -146,7 +146,7 @@ header.top{display:flex;align-items:center;justify-content:space-between;margin-
 
 .section-title{font-family:var(--font-hand);font-size:22px;color:var(--yellow);margin-top:8px;}
 .field{display:flex;flex-direction:column;align-items:center;gap:6px;width:100%;}
-.levelrow{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--chalk-dim);}
+.levelrow{display:flex;flex-direction:column;align-items:center;gap:6px;font-size:14px;color:var(--chalk-dim);}
 .topic-list{display:flex;flex-direction:column;gap:10px;width:100%;}
 .topic-card{
   display:flex;align-items:center;justify-content:space-between;gap:12px;text-align:left;

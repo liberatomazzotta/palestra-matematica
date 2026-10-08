@@ -419,7 +419,7 @@ function drawMenu(){
       <div class="section-title">Guidami</div>
       <div class="section-sub">Prima un ripasso di teoria, poi esercizi risolti passo dopo passo e con possibilità di chiedere aiuto.</div>
       ${idG.length ? `
-      <label class="levelrow">Argomento
+      <label class="levelrow">Scegli l'argomento
         <select class="sel" id="topicSelG">${idG.map(id => `<option value="${U.esc(id)}">${U.esc(TOPICS[id].titolo)}</option>`).join('')}</select>
       </label>
       <button class="startbtn" id="startGuidaBtn">Inizia il percorso guidato</button>` : '<div class="empty-board">Nessun argomento ha ancora un percorso guidato.</div>'}
@@ -431,10 +431,10 @@ function drawMenu(){
       <div class="section-title">Allenamento</div>
       <div class="section-sub">Esercitati in completa autonomia: nessun aiuto. Te la devi cavare da solo!</div>
       ${ORDER.length ? `
-      <label class="levelrow">Argomento
+      <label class="levelrow">Scegli l'argomento
         <select class="sel" id="topicSel">${opzioni}</select>
       </label>
-      <label class="levelrow">Livello
+      <label class="levelrow">Scegli il livello
         <select class="sel" id="livelloSel">${livelli.map(l => `<option value="${l[0]}"${String(praticaLivello) === l[0] ? ' selected' : ''}>${l[1]}</option>`).join('')}</select>
       </label>
       <button class="startbtn" id="startPraticaBtn">Inizia l'allenamento</button>` : '<div class="empty-board">Nessun argomento installato.</div>'}
