@@ -437,3 +437,13 @@ a.backlink{text-decoration:none;display:inline-flex;align-items:center;}
 .tlist{margin-bottom:18px;padding-bottom:12px;border-bottom:1px dashed var(--line);}
 #gPart{width:100%;display:flex;flex-direction:column;gap:10px;}
 #gPart .trow{justify-content:center;}
+
+/* scelta di uno o più argomenti con caselle di spunta */
+.topicpick{display:flex;flex-direction:column;gap:6px;width:100%;max-width:340px;margin-top:2px;}
+.topicpick .tp{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:10px;border:1px solid var(--line);background:var(--board-dark);cursor:pointer;text-align:left;color:var(--chalk);font-size:14px;font-weight:600;}
+.topicpick .tp input{width:18px;height:18px;accent-color:var(--blue);flex:none;margin:0;cursor:pointer;}
+.topicpick .tp:has(input:checked){border-color:var(--blue);background:rgba(126,180,214,0.12);}
+.topicpick .tp input:focus-visible{outline:2px solid var(--chalk);outline-offset:2px;}
+.theory-head{font-family:var(--font-hand);font-size:20px;color:var(--yellow);margin:2px 0 6px;}
+.theory-sep{border:none;border-top:1px dashed var(--line);margin:12px 0;clear:both;}
+.levelrow:has(.topicpick){width:100%;}

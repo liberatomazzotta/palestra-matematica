@@ -110,7 +110,12 @@ function updateScore(){ scoreEl.textContent = state ? state.score : 0; }
 function setModeLabel(t){ modeLabelEl.textContent = t || ''; }
 function nameKey(n){ return String(n || '').trim().replace(/\s+/g, ' ').toLowerCase(); }
 function nomeCategoria(topicId, c){ const t = TOPICS[topicId]; return (t && t.categorie && t.categorie[c]) || c; }
-function topicTitle(id){ return TOPICS[id] ? TOPICS[id].titolo : String(id || ''); }
+// Più argomenti insieme: gli id si uniscono con "+" (es. "fattori-primi+pitagora")
+function listaTopic(x){ return (Array.isArray(x) ? x : String(x || '').split('+')).filter(id => TOPICS[id]); }
+function chiaveTopic(ids){ return listaTopic(ids).join('+'); }
+function nomeRipasso(key){ const i = key.indexOf('|'); return i > -1 ? nomeCategoria(key.slice(0, i), key.slice(i + 1)) : key; }
+function topicTitle(id){
+  if(String(id || '').indexOf('+') > -1){ const ids = listaTopic(id); if(ids.length) return ids.map(x => TOPICS[x].titolo).join(' + '); } return TOPICS[id] ? TOPICS[id].titolo : String(id || ''); }
 
 function levelForCount(c){
   if(c <= 3) return 1;
@@ -394,7 +399,21 @@ function mascotteSezione(tipo){
 }
 
 // ================= MENU =================
-let menuTopic = '';      // ultimo argomento scelto nel menu
+let menuTopics = [];     // ultimi argomenti scelti nel menu (anche più d'uno)
+// Caselle di spunta per scegliere uno o più argomenti
+function sceltaArgomenti(ids, idGruppo){
+  const scelti = menuTopics.filter(id => ids.indexOf(id) > -1);
+  const pre = scelti.length ? scelti : ids.slice(0, 1);
+  return `<div class="levelrow">Scegli uno o più argomenti
+    <div class="topicpick" id="${idGruppo}" role="group" aria-label="Argomenti">${ids.map(id => `<label class="tp"><input type="checkbox" value="${U.esc(id)}"${pre.indexOf(id) > -1 ? ' checked' : ''}><span>${U.esc(TOPICS[id].titolo)}</span></label>`).join('')}</div>
+    <div class="board-note" id="${idGruppo}Note"></div></div>`;
+}
+function leggiArgomenti(idGruppo){
+  const ids = Array.from(document.querySelectorAll('#' + idGruppo + ' input:checked')).map(x => x.value);
+  const n = document.getElementById(idGruppo + 'Note');
+  if(!ids.length && n){ n.className = 'board-note err'; n.textContent = 'Scegli almeno un argomento.'; }
+  return ids;
+}
 let menuView = 'home';   // 'home' | 'guidami' | 'allenamento' | 'gara'
 function renderMenu(){ menuView = 'home'; drawMenu(); }
 function setMenuView(v){ 
@@ -429,20 +448,15 @@ function drawMenu(){
       <div class="section-title">Guidami</div>
       <div class="section-sub">Prima un ripasso di teoria, poi esercizi risolti passo dopo passo e con possibilità di chiedere aiuto.</div>
       ${idG.length ? `
-      <label class="levelrow">Scegli l'argomento
-        <select class="sel" id="topicSelG">${idG.map(id => `<option value="${U.esc(id)}">${U.esc(TOPICS[id].titolo)}</option>`).join('')}</select>
-      </label>
+      ${sceltaArgomenti(idG, 'topicSelG')}
       <button class="startbtn" id="startGuidaBtn">Inizia il percorso guidato</button>` : '<div class="empty-board">Nessun argomento ha ancora un percorso guidato.</div>'}`;
   } else if(menuView === 'allenamento'){
-    const opzioni = ORDER.map(id => `<option value="${U.esc(id)}">${U.esc(TOPICS[id].titolo)}</option>`).join('');
     corpo = `
       ${mascotteSezione('allenamento')}
       <div class="section-title">Allenamento</div>
       <div class="section-sub">Esercitati in completa autonomia: nessun aiuto. Te la devi cavare da solo!</div>
       ${ORDER.length ? `
-      <label class="levelrow">Scegli l'argomento
-        <select class="sel" id="topicSel">${opzioni}</select>
-      </label>
+      ${sceltaArgomenti(ORDER, 'topicSel')}
       <label class="levelrow">Scegli il livello
         <select class="sel" id="livelloSel">${livelli.map(l => `<option value="${l[0]}"${String(praticaLivello) === l[0] ? ' selected' : ''}>${l[1]}</option>`).join('')}</select>
       </label>
@@ -482,15 +496,18 @@ function drawMenu(){
 
   const q = id => document.getElementById(id);
   if(q('goGuida')) q('goGuida').addEventListener('click', () => setMenuView('guidami'));
-  if(q('startGuidaBtn')) q('startGuidaBtn').addEventListener('click', () => { menuTopic = q('topicSelG').value; startGuida(q('topicSelG').value); });
-  if(q('topicSelG') && menuTopic && TOPICS[menuTopic] && TOPICS[menuTopic].guida) q('topicSelG').value = menuTopic;
+  if(q('startGuidaBtn')) q('startGuidaBtn').addEventListener('click', () => {
+    const ids = leggiArgomenti('topicSelG'); if(!ids.length) return;
+    menuTopics = ids; startGuida(ids);
+  });
   if(q('goAllenamento')) q('goAllenamento').addEventListener('click', () => setMenuView('allenamento'));
   if(q('goGara')) q('goGara').addEventListener('click', () => setMenuView('gara'));
   if(q('backHome')) q('backHome').addEventListener('click', () => setMenuView('home'));
   if(q('topicSel')){
-    if(menuTopic && TOPICS[menuTopic]) q('topicSel').value = menuTopic;
-    q('topicSel').addEventListener('change', () => { menuTopic = q('topicSel').value; });
-    q('startPraticaBtn').addEventListener('click', () => startPratica(q('topicSel').value));
+    q('startPraticaBtn').addEventListener('click', () => {
+      const ids = leggiArgomenti('topicSel'); if(!ids.length) return;
+      menuTopics = ids; startPratica(ids);
+    });
   }
   if(q('livelloSel')) q('livelloSel').addEventListener('change', e => { praticaLivello = e.target.value; });
   if(q('joinGaraBtn')) q('joinGaraBtn').addEventListener('click', () => {
@@ -553,8 +570,8 @@ function chiaveGiorno(){
   const d = new Date();
   return 'g' + d.getFullYear() + String(d.getMonth() + 1).padStart(2, '0') + String(d.getDate()).padStart(2, '0');
 }
-function presDelta(){
-  const t = pres.topicId;
+function presDelta(topic){
+  const t = topic || listaTopic(pres.topicId)[0] || pres.topicId;
   return pres.delta[t] = pres.delta[t] || { ok: 0, ko: 0, sec: 0, guidati: 0, cat: {} };
 }
 function presStart(name, topicId, modo){
@@ -566,9 +583,9 @@ function presStart(name, topicId, modo){
   pres.beat = setInterval(presFlush, PRES_BEAT_MS);
   presFlush();
 }
-function presAnswer(ok, categoria){
+function presAnswer(ok, categoria, topic){
   if(!pres) return;
-  const dl = presDelta();
+  const dl = presDelta(topic);
   dl[ok ? 'ok' : 'ko'] += 1;
   if(categoria){
     const c = dl.cat[categoria] = dl.cat[categoria] || { ok: 0, ko: 0 };
@@ -630,7 +647,8 @@ function liveStop(final){
 }
 
 // ================= ESERCITAZIONE =================
-function startPratica(topicId){
+function startPratica(scelta){
+  const topicIds = listaTopic(scelta), topicId = topicIds.join('+');
   const inp = document.getElementById('nomeInput');
   let nome = inp ? inp.value.trim() : '';
   if(!inp){ try{ nome = localStorage.getItem('palestra_nome') || ''; }catch(e){} }
@@ -642,10 +660,10 @@ function startPratica(topicId){
   }
   try{ localStorage.setItem('palestra_nome', nome); }catch(e){}
   stopAll();
-  if(!TOPICS[topicId]) return;
+  if(!topicIds.length) return;
   setFooterVisible(false);
   state = {
-    mode: 'pratica', topicId,
+    mode: 'pratica', topicId, topicIds, idx: {},
     fixedLevel: praticaLivello === 'auto' ? 0 : Number(praticaLivello),
     score: 0, askedCount: 0, correctCount: 0, wrongCount: 0,
     elapsedSeconds: 0, current: null, over: false,
@@ -653,7 +671,7 @@ function startPratica(topicId){
   };
   setScoreVisible(true);
   updateScore();
-  setModeLabel(TOPICS[topicId].titolo);
+  setModeLabel(topicTitle(topicId));
   renderHud('pratica');
   timerInterval = setInterval(practiceTick, 1000);
   presStart(nome, topicId);
@@ -680,7 +698,7 @@ function endPractice(){
   const s = String(state.elapsedSeconds % 60).padStart(2, '0');
   const tot = state.correctCount + state.wrongCount;
   const acc = tot > 0 ? Math.round(state.correctCount / tot * 100) + '%' : '—';
-  const topicId = state.topicId;
+  const topicId = state.topicId, topicIds = state.topicIds;
   renderHud('none');
   panel.innerHTML = `
     <div class="center-screen">
@@ -689,8 +707,8 @@ function endPractice(){
       <b style="color:var(--yellow)">${m}:${s}</b>, con un'accuratezza del <b style="color:var(--yellow)">${acc}</b>.</p>
       ${(() => {
         const sup = Object.keys(state.superati || {}), aperti = Object.keys(state.ripasso || {});
-        return (sup.length ? `<p>Ripassati e superati: <b style="color:var(--green)">${sup.map(c => U.esc(nomeCategoria(topicId, c))).join(', ')}</b>.</p>` : '') +
-          (aperti.length ? `<p>Da ripassare ancora: <b style="color:var(--pink)">${aperti.map(c => U.esc(nomeCategoria(topicId, c))).join(', ')}</b>.</p>` : '');
+        return (sup.length ? `<p>Ripassati e superati: <b style="color:var(--green)">${sup.map(c => U.esc(nomeRipasso(c))).join(', ')}</b>.</p>` : '') +
+          (aperti.length ? `<p>Da ripassare ancora: <b style="color:var(--pink)">${aperti.map(c => U.esc(nomeRipasso(c))).join(', ')}</b>.</p>` : '');
       })()}
       <p style="font-size:12px;opacity:0.75;">L'allenamento non entra in classifica: serve a prepararti alla gara.</p>
       <div class="trow">
@@ -698,7 +716,7 @@ function endPractice(){
         <button class="ghostbtn" id="menuBtn">Torna al menu</button>
       </div>
     </div>`;
-  document.getElementById('againBtn').addEventListener('click', () => startPratica(topicId));
+  document.getElementById('againBtn').addEventListener('click', () => startPratica(topicIds || topicId));
   document.getElementById('menuBtn').addEventListener('click', renderMenu);
 }
 
@@ -706,16 +724,27 @@ function endPractice(){
 function nextQuestion(){
   if(!state || state.over) return;
   if(state.mode === 'gara' && Date.now() >= state.endAt){ finishManche(); return; }
-  const topic = TOPICS[state.topicId];
+  const ids = state.topicIds && state.topicIds.length ? state.topicIds : listaTopic(state.topicId);
+  state.idx = state.idx || {};
   const livello = state.fixedLevel || levelForCount(state.correctCount);
   let q, rip = null;
   try{
     rip = state.mode === 'pratica' ? scegliRipasso() : null;
     if(rip){
-      q = domandaDiCategoria(topic, rip, livello);
-      if(!q){ delete state.ripasso[rip]; rip = null; }   // l'argomento non sa generarla: si rinuncia
+      const tRip = rip.slice(0, rip.indexOf('|'));
+      q = TOPICS[tRip] ? domandaDiCategoria(TOPICS[tRip], rip.slice(rip.indexOf('|') + 1), livello) : null;
+      if(q) q._topic = tRip;
+      else { delete state.ripasso[rip]; rip = null; }   // l'argomento non sa generarla: si rinuncia
     }
-    if(!q){ q = topic.generaDomanda(livello, state.askedCount); state.normaliDaRipasso += 1; }
+    if(!q){
+      // più argomenti: si alternano, ognuno con il suo contatore (così ogni argomento ruota i suoi tipi)
+      const t = ids[state.askedCount % ids.length];
+      const k = state.idx[t] || 0;
+      q = TOPICS[t].generaDomanda(livello, k);
+      q._topic = t;
+      state.idx[t] = k + 1;
+      state.normaliDaRipasso += 1;
+    }
     else state.normaliDaRipasso = 0;
   }
   catch(e){
@@ -752,8 +781,8 @@ function domandaDiCategoria(topic, cat, livello){
   return null;
 }
 function ripassoEsito(cur, ok){
-  const cat = cur.q.categoria;
-  if(state.mode !== 'pratica' || !cat) return null;
+  if(state.mode !== 'pratica' || !cur.q.categoria) return null;
+  const cat = (cur.q._topic || listaTopic(state.topicId)[0]) + '|' + cur.q.categoria;   // chiave argomento|categoria
   state.ripasso = state.ripasso || {};
   const r = state.ripasso[cat];
   if(!ok){
@@ -777,7 +806,7 @@ function drawQuestion(){
   const cur = state.current, q = cur.q;
   panel.innerHTML = `
     <div class="bonus-pop" id="bonusPop"></div>
-    ${cur.ripasso ? `<div class="rip-badge">Ripasso · ${U.esc(nomeCategoria(state.topicId, cur.ripasso))}</div>` : ''}
+    ${cur.ripasso ? `<div class="rip-badge">Ripasso · ${U.esc(nomeRipasso(cur.ripasso))}</div>` : ''}
     <div class="instr">${q.istruzione || ''}</div>
     <div class="q-area" id="qArea"></div>
     <div class="rule-box" id="ruleBox" style="display:none;"></div>`;
@@ -799,7 +828,7 @@ function makeCtx(cur){
       const bonus = speedBonus(cur.startTs, cur.q.tempo);
       state.score += base + bonus;
       state.correctCount += 1;
-      if(mode === 'pratica') presAnswer(true, cur.q.categoria); else if(mode === 'gara') liveTouch();
+      if(mode === 'pratica') presAnswer(true, cur.q.categoria, cur.q._topic); else if(mode === 'gara') liveTouch();
       const esito = ripassoEsito(cur, true);
       updateScore();
       showBonus(esito === 'superato' ? `+${base + bonus} · ripasso superato!` : bonus > 0 ? `+${base + bonus} (bonus velocità)` : `+${base}`, false);
@@ -817,7 +846,7 @@ function makeCtx(cur){
       }
       state.score = Math.max(0, state.score - 3);
       state.wrongCount += 1;
-      if(mode === 'pratica') presAnswer(false, cur.q.categoria); else if(mode === 'gara') liveTouch();
+      if(mode === 'pratica') presAnswer(false, cur.q.categoria, cur.q._topic); else if(mode === 'gara') liveTouch();
       ripassoEsito(cur, false);
       updateScore();
       showBonus('-3', true);
@@ -885,7 +914,8 @@ function mostraNumerica(q, area, ctx){
 //   guida: { teoria: 'HTML', generaEsercizio(indice) -> { titolo, testo, passi:[...], conclusione } }
 //   passo: { testo, tipo:'scelta'|'numerica', opzioni, corretta, suggerimento, spiegazione }
 let guidaCtx = null;
-function startGuida(topicId, nomeNoto){
+function startGuida(scelta, nomeNoto){
+  const topicIds = listaTopic(scelta).filter(id => TOPICS[id].guida), topicId = topicIds.join('+');
   const inp = document.getElementById('nomeInput');
   let nome = inp ? inp.value.trim() : (nomeNoto || '');
   if(!inp && !nome){ try{ nome = localStorage.getItem('palestra_nome') || ''; }catch(e){} }
@@ -897,19 +927,19 @@ function startGuida(topicId, nomeNoto){
   }
   try{ localStorage.setItem('palestra_nome', nome); }catch(e){}
   stopAll();
-  const t = TOPICS[topicId];
-  if(!t || !t.guida) return;
+  if(!topicIds.length) return;
   setScoreVisible(false);
   setFooterVisible(false);
   presStart(nome, topicId, 'guida');
-  guidaCtx = { topicId, indice: 0, nome };
+  guidaCtx = { topicId, topicIds, indice: 0, nome };
   presGuida(0, 0, 0);
-  setModeLabel(t.titolo + ' · Guidami');
+  setModeLabel(topicTitle(topicId) + ' · Guidami');
+  const teoria = topicIds.map(id => (topicIds.length > 1 ? `<div class="theory-head">${U.esc(TOPICS[id].titolo)}</div>` : '') + TOPICS[id].guida.teoria).join('<hr class="theory-sep">');
   renderHud('none');
   panel.innerHTML = `
     <div class="guide">
       <div class="section-title">Prima la teoria</div>
-      <div class="rule-box guide-theory">${t.guida.teoria}</div>
+      <div class="rule-box guide-theory">${teoria}</div>
       <div class="trow">
         <button class="startbtn" id="gEsBtn">Ho capito, vediamo un esercizio →</button>
         <button class="ghostbtn" id="gMenuBtn">Torna al menu</button>
@@ -921,9 +951,11 @@ function startGuida(topicId, nomeNoto){
 
 function guidaEsercizio(){
   const g = guidaCtx; if(!g) return;
-  const t = TOPICS[g.topicId];
+  // più argomenti: gli esercizi si alternano
+  const tId = g.topicIds[g.indice % g.topicIds.length];
+  const t = TOPICS[tId];
   let es;
-  try{ es = t.guida.generaEsercizio(g.indice); }
+  try{ es = t.guida.generaEsercizio(Math.floor(g.indice / g.topicIds.length)); }
   catch(e){ console.error(e); renderMsg('Errore', 'Impossibile generare l\'esercizio.', { err: true }); return; }
   g.indice += 1;
   let i = 0;
@@ -954,7 +986,7 @@ function guidaEsercizio(){
     });
     const ctx = {
       corretta(){
-        if(!sbagliato) presAnswer(true, es.categoria);
+        if(!sbagliato) presAnswer(true, es.categoria, tId);
         hintBtn.disabled = true;
         fatti.push(`<b>${i + 1}.</b> ${p.testo} <span class="verdict">${p.rispostaTesto || ''}</span>` +
           (p.spiegazione ? `<div class="gnote">${p.spiegazione}</div>` : ''));
@@ -965,7 +997,7 @@ function guidaEsercizio(){
         b.addEventListener('click', () => { i += 1; if(i < es.passi.length) disegna(); else conclusione(); });
       },
       errata(){
-        if(!sbagliato){ sbagliato = true; presAnswer(false, es.categoria); }
+        if(!sbagliato){ sbagliato = true; presAnswer(false, es.categoria, tId); }
         hintBox.innerHTML = `<b>Non ancora.</b> ${p.suggerimento || 'Rileggi la teoria e riprova.'}`;
         hintBox.style.display = 'block';
       }
@@ -974,7 +1006,7 @@ function guidaEsercizio(){
   }
 
   function conclusione(){
-    if(pres) presDelta().guidati += 1;
+    if(pres) presDelta(tId).guidati += 1;
     presGuida(g.indice, es.passi.length, es.passi.length);
     const sopra = fatti.map(h => `<div class="gstep done">${h}</div>`).join('');
     panel.innerHTML = `
@@ -991,8 +1023,8 @@ function guidaEsercizio(){
         </div>
       </div>`;
     document.getElementById('gAltro').addEventListener('click', guidaEsercizio);
-    document.getElementById('gTeoria').addEventListener('click', () => startGuida(g.topicId, g.nome));
-    document.getElementById('gAllena').addEventListener('click', () => { menuTopic = g.topicId; setMenuView('allenamento'); });
+    document.getElementById('gTeoria').addEventListener('click', () => startGuida(g.topicIds, g.nome));
+    document.getElementById('gAllena').addEventListener('click', () => { menuTopics = g.topicIds.slice(); setMenuView('allenamento'); });
     document.getElementById('gMenu').addEventListener('click', renderMenu);
   }
   disegna();
@@ -1170,12 +1202,13 @@ function updateGaraBar(remaining, duration){
 }
 
 function beginGara(info, rk){
-  if(!TOPICS[info.topic]){
+  const garaIds = String(info.topic || '').split('+');
+  if(!garaIds.length || garaIds.some(id => !TOPICS[id])){
     renderMsg('Argomento non disponibile', `La gara usa l'argomento «${U.esc(info.topic)}», assente in questa versione dell'app. Ricarica la pagina (Ctrl+Maiusc+R).`, { err: true });
     return;
   }
   state = {
-    mode: 'gara', topicId: info.topic, sessionId: info.sessionId, manche: info.manche, runKey: rk,
+    mode: 'gara', topicId: info.topic, topicIds: garaIds, idx: {}, sessionId: info.sessionId, manche: info.manche, runKey: rk,
     name: garaCtx.name, score: 0, askedCount: 0, correctCount: 0, wrongCount: 0,
     current: null, over: false, endAt: info.startAt + info.duration, duration: info.duration
   };
@@ -1581,14 +1614,13 @@ function garaDisegna(force){
 
 function garaImpostazione(body){
   const t = teacherCtx, prev = (t && t.state) || {};
-  const opts = ORDER.map(id => `<option value="${U.esc(id)}"${prev.topic === id ? ' selected' : ''}>${U.esc(TOPICS[id].titolo)}</option>`).join('');
   const nPrev = nMancheDi(prev), dPrev = Math.round((prev.duration || DURATA_MS) / 1000);
   const modo = prev.mode === 'squadre' ? 'squadre' : 'singola';
   const nSq = aSquadre(prev) ? prev.teams.length : 2;
   body.innerHTML = `
     <div class="tsec">
       <div class="tsec-title">Nuova gara</div>
-      <label class="levelrow">Argomento<select class="sel" id="sTopic">${opts}</select></label>
+      ${(() => { const salva = menuTopics; menuTopics = listaTopic(prev.topic); const h = sceltaArgomenti(ORDER, 'sTopic'); menuTopics = salva; return h; })()}
       <div class="tcols">
         <label class="levelrow">Numero di manches
           <select class="sel" id="sManche">${Array.from({ length: MAX_MANCHES }, (_, i) => i + 1).map(n => `<option value="${n}"${n === nPrev ? ' selected' : ''}>${n}</option>`).join('')}</select></label>
@@ -1619,13 +1651,15 @@ function garaImpostazione(body){
   q('sCrea').addEventListener('click', async () => {
     const cur = t.state ? derivePhase(t.state, Date.now()) : null;
     if(cur && (cur.phase === 'running' || cur.phase === 'countdown') && !window.confirm('Una manche è in corso. Creare comunque una nuova gara?')) return;
+    const argomenti = leggiArgomenti('sTopic');
+    if(!argomenti.length) return;
     const modoSel = body.querySelector('input[name="sModo"]:checked').value;
     const n = Number(q('sSquadre').value);
     const teams = modoSel === 'squadre' ? SQUADRE.slice(0, n).map(x => ({ nome: x[0], colore: x[1], membri: [] })) : [];
     q('sCrea').disabled = true;
     try{
       await db.collection('game').doc('state').set({
-        sessionId: Date.now(), topic: q('sTopic').value, nManche: Number(q('sManche').value),
+        sessionId: Date.now(), topic: argomenti.join('+'), nManche: Number(q('sManche').value),
         manche: 0, startAt: null, duration: Number(q('sDurata').value) * 1000,
         mode: modoSel, teams, updatedAt: Date.now()
       });

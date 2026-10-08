@@ -49,6 +49,8 @@ Se i Chromebook della scuola bloccano `github.io`, usa **Firebase Hosting** (`we
 
 ## Uso in classe
 
+In Guidami, Allenamento e nell'impostazione della gara si possono spuntare **uno o più argomenti**: le domande (o gli esercizi guidati) si alternano tra gli argomenti scelti; report, ripasso mirato e statistiche restano separati per argomento.
+
 1. Alunni: aprono il link, scrivono Cognome e Nome, scelgono **Allenamento** (poi argomento da elenco a discesa e livello) oppure **Gara**.
 2. Docente: link **Cruscotto docente** in fondo alla home → codice → piastrella **Gara** → scegli argomento, numero di manches (1–5), durata (1–5 minuti) e tipo: **tutti contro tutti** o **a squadre** (2–6 squadre) → **Crea la gara**.
 3. Alunni: **Gara** → Cognome e Nome → **Entra in gara**. Compaiono nell'elenco "Alunni in gara" del docente.
