@@ -318,6 +318,70 @@ function attivaMascotte(){
   ok.addEventListener('click', verifica);
 }
 
+// ---------- Mascotte nelle pagine Guidami / Allenamento / Gara (solo animazione, 2 volte) ----------
+const M_CORPO = `
+  <circle cx="130" cy="105" r="40" fill="var(--yellow)" stroke="var(--chalk)" stroke-width="3"/>
+  <path d="M93 91 Q130 77 167 91" stroke="var(--pink)" stroke-width="7"/>
+  <path d="M167 91 l12 -6 M167 91 l13 4" stroke="var(--pink)" stroke-width="4"/>
+  <circle cx="117" cy="103" r="4.5" fill="var(--board)" stroke="none"/>
+  <circle cx="143" cy="103" r="4.5" fill="var(--board)" stroke="none"/>
+  <circle cx="108" cy="115" r="4" fill="var(--pink)" stroke="none" opacity=".55"/>
+  <circle cx="152" cy="115" r="4" fill="var(--pink)" stroke="none" opacity=".55"/>
+  <path d="M118 117 Q130 129 142 117" stroke="var(--board)" stroke-width="3.5"/>`;
+const M_GAMBE = `
+  <path d="M114 141 L108 158 L96 158" stroke="var(--yellow)" stroke-width="7"/>
+  <path d="M146 141 L152 158 L164 158" stroke="var(--yellow)" stroke-width="7"/>`;
+function mascotteSezione(tipo){
+  let g;
+  if(tipo === 'guidami'){
+    // occhiali e bacchetta che indica la lavagnetta
+    g = `
+    <rect x="6" y="22" width="78" height="48" rx="6" fill="var(--board-dark)" stroke="var(--chalk)" stroke-width="2.5"/>
+    <text x="45" y="53" text-anchor="middle" font-family="var(--font-hand)" font-size="21" fill="var(--chalk)" stroke="none">a² + b²</text>
+    ${M_GAMBE}
+    <path d="M164 112 Q182 126 176 142" stroke="var(--yellow)" stroke-width="7"/>
+    <g class="gd-body">${M_CORPO}
+      <circle cx="117" cy="103" r="9" fill="none" stroke="var(--board)" stroke-width="2.5"/>
+      <circle cx="143" cy="103" r="9" fill="none" stroke="var(--board)" stroke-width="2.5"/>
+      <path d="M126 103 L134 103" stroke="var(--board)" stroke-width="2.5"/>
+    </g>
+    <g class="gd-arm">
+      <path d="M96 110 Q84 100 86 84" stroke="var(--yellow)" stroke-width="7"/>
+      <circle cx="86" cy="82" r="6" fill="var(--yellow)" stroke="none"/>
+      <path d="M88 80 L62 52" stroke="var(--chalk)" stroke-width="3"/>
+      <circle cx="62" cy="52" r="2.5" fill="var(--pink)" stroke="none"/>
+    </g>`;
+  } else if(tipo === 'allenamento'){
+    // salta la corda da solo
+    g = `
+    <g class="al-jump">
+      <g class="al-rope"><path d="M80 112 C 78 196, 182 196, 180 112" stroke="var(--blue)" stroke-width="3"/></g>
+      ${M_GAMBE}
+      <path d="M95 110 Q84 114 80 112" stroke="var(--yellow)" stroke-width="7"/>
+      <path d="M165 110 Q176 114 180 112" stroke="var(--yellow)" stroke-width="7"/>
+      <circle cx="80" cy="112" r="6" fill="var(--yellow)" stroke="none"/>
+      <circle cx="180" cy="112" r="6" fill="var(--yellow)" stroke="none"/>
+      ${M_CORPO}
+    </g>`;
+  } else {
+    // corre sul posto con medaglia e cronometro
+    g = `
+    <g class="ga-bob">
+      <g class="ga-leg1"><path d="M114 141 L108 158 L96 158" stroke="var(--yellow)" stroke-width="7"/></g>
+      <g class="ga-leg2"><path d="M146 141 L152 158 L164 158" stroke="var(--yellow)" stroke-width="7"/></g>
+      <path d="M95 110 Q78 118 84 132" stroke="var(--yellow)" stroke-width="7"/>
+      <path d="M165 105 Q186 88 190 66" stroke="var(--yellow)" stroke-width="7"/>
+      ${M_CORPO}
+      <path d="M118 130 L130 140 L142 130" stroke="var(--pink)" stroke-width="3"/>
+      <circle cx="130" cy="143" r="7" fill="var(--blue)" stroke="var(--chalk)" stroke-width="2"/>
+      <rect x="187" y="30" width="8" height="6" rx="2" fill="var(--chalk)" stroke="none"/>
+      <circle cx="191" cy="50" r="15" fill="var(--board-dark)" stroke="var(--chalk)" stroke-width="3"/>
+      <g class="ga-needle"><path d="M191 50 L191 39" stroke="var(--pink)" stroke-width="2.5"/></g>
+    </g>`;
+  }
+  return `<svg class="mascotte mini m-${tipo}" viewBox="0 0 260 190" aria-hidden="true"><g fill="none" stroke-linecap="round" stroke-linejoin="round">${g}</g></svg>`;
+}
+
 // ================= MENU =================
 let menuTopic = '';      // ultimo argomento scelto nel menu
 let menuView = 'home';   // 'home' | 'guidami' | 'allenamento' | 'gara'
@@ -351,6 +415,7 @@ function drawMenu(){
   if(menuView === 'guidami'){
     const idG = ORDER.filter(id => TOPICS[id].guida);
     corpo = `
+      ${mascotteSezione('guidami')}
       <div class="section-title">Guidami</div>
       <div class="section-sub">Prima un ripasso di teoria, poi esercizi risolti passo dopo passo e con possibilità di chiedere aiuto.</div>
       ${idG.length ? `
@@ -362,6 +427,7 @@ function drawMenu(){
   } else if(menuView === 'allenamento'){
     const opzioni = ORDER.map(id => `<option value="${U.esc(id)}">${U.esc(TOPICS[id].titolo)}</option>`).join('');
     corpo = `
+      ${mascotteSezione('allenamento')}
       <div class="section-title">Allenamento</div>
       <div class="section-sub">Esercitati in completa autonomia: nessun aiuto. Te la devi cavare da solo!</div>
       ${ORDER.length ? `
@@ -375,6 +441,7 @@ function drawMenu(){
       ${indietro}`;
   } else if(menuView === 'gara'){
     corpo = `
+      ${mascotteSezione('gara')}
       <div class="section-title">Gara</div>
       <div class="section-sub">La avvia il docente per tutti insieme: 3 manches, classifica finale con podio. L'argomento lo sceglie il docente: lo vedrai appena entri.</div>
       ${configured() ? '' : '<div class="board-note err">Gara non configurata: manca la configurazione Firebase in config.js. L\'allenamento funziona comunque.</div>'}

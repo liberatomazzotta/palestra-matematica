@@ -356,3 +356,26 @@ body.mosaic-page .foot{padding:10px 0 20px;}
 .fig.big{max-width:240px;}
 .guide-theory .fig{max-width:200px;float:right;margin:0 0 8px 12px;}
 @media (max-width:560px){.guide-theory .fig{float:none;margin:0 auto 8px;}}
+
+/* mascotte nelle pagine di sezione: più piccola, animazione ripetuta 2 volte */
+.mascotte.mini{max-width:150px;margin:0 auto -4px;cursor:default;}
+.mascotte.mini g{transform-box:view-box;}
+/* Guidami: indica la lavagnetta e annuisce */
+.m-guidami .gd-arm{transform-origin:96px 110px;animation:gd-point 1.5s ease-in-out 2;}
+.m-guidami .gd-body{transform-origin:130px 145px;animation:gd-nod 1.5s ease-in-out 2;}
+@keyframes gd-point{0%,100%{transform:rotate(0);}25%{transform:rotate(-7deg);}45%{transform:rotate(2deg);}65%{transform:rotate(-7deg);}}
+@keyframes gd-nod{0%,100%{transform:rotate(0);}30%{transform:rotate(-4deg) translateY(2px);}60%{transform:rotate(3deg);}}
+/* Allenamento: salto con la corda */
+.m-allenamento .al-rope{transform-origin:130px 112px;animation:al-rope .8s linear 4;}
+.m-allenamento .al-jump{animation:al-jump .8s ease-in-out 4;}
+@keyframes al-rope{0%{transform:scaleY(1);}50%{transform:scaleY(-1);}100%{transform:scaleY(1);}}
+@keyframes al-jump{0%,100%{transform:translateY(-12px);}50%{transform:translateY(0);}}
+/* Gara: corsa sul posto con cronometro */
+.m-gara .ga-leg1{transform-origin:114px 141px;animation:ga-leg .5s ease-in-out 6;}
+.m-gara .ga-leg2{transform-origin:146px 141px;animation:ga-leg .5s ease-in-out 6 reverse;}
+.m-gara .ga-bob{animation:ga-bob .25s ease-in-out 12;}
+.m-gara .ga-needle{transform-origin:191px 50px;animation:ga-needle 3s linear 1;}
+@keyframes ga-leg{0%,100%{transform:rotate(18deg);}50%{transform:rotate(-18deg);}}
+@keyframes ga-bob{0%,100%{transform:translateY(0);}50%{transform:translateY(-4px);}}
+@keyframes ga-needle{from{transform:rotate(0);}to{transform:rotate(360deg);}}
+@media (prefers-reduced-motion: reduce){.mascotte.mini g{animation:none !important;}}
