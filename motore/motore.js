@@ -97,6 +97,11 @@ function initFirebase(){
   catch(e){ console.error(e); db = null; }
 }
 
+// i link del footer (cruscotto, crediti) si vedono solo nei menu, non durante un'attività
+function setFooterVisible(v){
+  const el = document.querySelector('.board > .foot');
+  if(el) el.style.visibility = v ? '' : 'hidden';
+}
 function setScoreVisible(v){
   const el = document.querySelector('.top .stats');
   if(el) el.style.display = v ? '' : 'none';
@@ -138,6 +143,7 @@ function leaveTeacherFlow(){
   teacherCtx = null;
 }
 function stopAll(){
+  setFooterVisible(true);
   setScoreVisible(false);   // i punti si vedono solo in allenamento e in gara
   presStop();
   liveStop();
@@ -413,7 +419,6 @@ function drawMenu(){
         <input class="nameinput" id="nomeInput" maxlength="30" placeholder="Scrivi Cognome e Nome" autocomplete="off" value="${U.esc(nome)}">
         <div class="board-note" id="nomeNote"></div>
       </div>`;
-  const docente = '<button class="ghostbtn" id="teacherLink" style="margin-top:10px;opacity:0.75;">Cruscotto docente</button>';
   const indietro = '<button class="backlink" id="backHome" aria-label="Torna alla pagina iniziale">← Indietro</button>';
   let corpo;
 
@@ -463,7 +468,7 @@ function drawMenu(){
 
   // Cognome e Nome si chiede solo dopo la scelta, sotto il titolo della sezione
   let html;
-  if(menuView === 'home') html = corpo + docente;
+  if(menuView === 'home') html = corpo;
   else {
     // dopo titolo e sottotitolo
     let k = corpo.indexOf('</div>') + 6;
@@ -501,7 +506,6 @@ function drawMenu(){
     try{ localStorage.setItem('palestra_nome', val); }catch(e){}
     entraInGara(val);
   });
-  if(q('teacherLink')) q('teacherLink').addEventListener('click', () => renderTeacherGate());
   if(q('mascotWrap')) attivaMascotte();
 }
 
@@ -639,6 +643,7 @@ function startPratica(topicId){
   try{ localStorage.setItem('palestra_nome', nome); }catch(e){}
   stopAll();
   if(!TOPICS[topicId]) return;
+  setFooterVisible(false);
   state = {
     mode: 'pratica', topicId,
     fixedLevel: praticaLivello === 'auto' ? 0 : Number(praticaLivello),
@@ -895,6 +900,7 @@ function startGuida(topicId, nomeNoto){
   const t = TOPICS[topicId];
   if(!t || !t.guida) return;
   setScoreVisible(false);
+  setFooterVisible(false);
   presStart(nome, topicId, 'guida');
   guidaCtx = { topicId, indice: 0, nome };
   presGuida(0, 0, 0);
@@ -1046,6 +1052,7 @@ function runKeyOf(i){ return i.sessionId + '#' + i.manche + '@' + i.startAt; }
 
 function entraInGara(name){
   stopAll();
+  setFooterVisible(false);
   if(!db){
     renderMsg('Gara non disponibile', 'La gara richiede la configurazione Firebase (config.js).', { err: true });
     return;
@@ -1575,6 +1582,9 @@ function avvia(){
   modeLabelEl = document.getElementById('modeLabel');
   hudRow = document.getElementById('hudRow');
   initFirebase();
+  // link "Cruscotto docente" nel footer
+  const fd = document.getElementById('footDocente');
+  if(fd) fd.addEventListener('click', e => { e.preventDefault(); renderTeacherGate(); });
   renderMenu();
 }
 

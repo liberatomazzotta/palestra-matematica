@@ -385,3 +385,13 @@ body.mosaic-page .foot{padding:10px 0 20px;}
   background:transparent;border:1px solid transparent;color:var(--chalk-dim);font-family:var(--font-ui);font-size:13px;font-weight:600;cursor:pointer;}
 .backlink:focus-visible{outline:2px solid var(--chalk-dim);outline-offset:2px;}
 @media (hover:hover) and (pointer:fine){ .backlink:hover{color:var(--chalk);border-color:rgba(242,240,230,0.2);} }
+
+/* footer: link a cruscotto docente e crediti */
+.foot a{color:var(--chalk-dim);text-decoration:none;padding:6px 4px;border-radius:6px;}
+.foot a:hover,.foot a:focus-visible{color:var(--chalk);text-decoration:underline;outline:none;}
+.foot .sep{margin:0 8px;opacity:.6;}
+/* pagina crediti */
+.credits{display:flex;flex-direction:column;align-items:center;gap:14px;text-align:center;padding:10px 6px 4px;}
+.credits p{margin:0;font-size:15px;line-height:1.6;color:var(--chalk);max-width:440px;}
+.credits .who{font-family:var(--font-hand);font-size:26px;color:var(--yellow);}
+a.backlink{text-decoration:none;display:inline-flex;align-items:center;}

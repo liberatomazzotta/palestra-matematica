@@ -51,7 +51,7 @@ Se i Chromebook della scuola bloccano `github.io`, usa **Firebase Hosting** (`we
 
 1. Alunni: aprono il link, scrivono Cognome e Nome, scelgono **Allenamento** (poi argomento da elenco a discesa e livello) oppure **Gara**.
 2. Pausa o fine riscaldamento: gli alunni premono **Entra in gara** e restano in attesa.
-3. Docente: **Cruscotto docente** → codice → scegli l'argomento → **Crea nuova gara** → **Avvia Manche 1**.
+3. Docente: link **Cruscotto docente** in fondo alla home → codice → scegli l'argomento → **Crea nuova gara** → **Avvia Manche 1**.
    Il pannello mostra in tempo reale lo stato e quanti punteggi sono stati consegnati.
 4. Dopo la Manche 3: **Classifica finale (podio)** dal pannello (o dal pulsante che compare agli alunni).
 
