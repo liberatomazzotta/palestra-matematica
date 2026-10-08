@@ -57,9 +57,11 @@ In Guidami, Allenamento e nell'impostazione della gara si possono spuntare **uno
 4. A squadre: il docente assegna gli alunni con "+ Aggiungi alunno…" su ogni squadra (× per toglierli) oppure **Distribuisci a caso**. Ogni alunno vede la propria squadra. Punteggio di squadra = media dei punteggi dei componenti che hanno giocato.
 5. **Avvia la manche 1**, poi le successive; dopo l'ultima: **Classifica finale (podio)** (anche gli alunni hanno il pulsante).
 
-Il cruscotto ha tre piastrelle: **Gara**, **Vista alunni** (si apre in una nuova scheda), **Pulizia dati**.
+Il cruscotto ha quattro piastrelle: **Gara**, **Vista alunni** (si apre in una nuova scheda), **Archivio gare**, **Pulizia dati**.
 
-**Regole Firestore**: questa versione usa la collezione `players` (iscritti alla gara) e manches fino a 10. Se non l'hai già fatto, ripubblica `firestore.rules` (Console Firebase → Firestore → Regole → incolla → Pubblica), altrimenti gli alunni non compaiono nell'elenco.
+**Archivio gare**: ogni gara ha una scheda (collezione `gare`) con data, argomenti, manches giocate, squadre e classifica finale (individuale e a squadre), aggiornata alla fine di ogni manche e prima di creare una nuova gara. Dalla scheda: **Scarica CSV** o **Elimina dall'archivio**. La pulizia dei risultati non tocca l'archivio; c'è un comando apposito per svuotarlo.
+
+**Regole Firestore**: questa versione usa la collezione `players` (iscritti alla gara) e manches fino a 10. Ripubblica `firestore.rules` (ora contiene anche la collezione `gare`) (Console Firebase → Firestore → Regole → incolla → Pubblica), altrimenti gli alunni non compaiono nell'elenco.
 
 ## Vista alunni (esercitazione e gara)
 

@@ -1522,6 +1522,7 @@ function renderTeacherPanel(){
       <div class="tgrid">
         <button class="ttile" id="tileGara"><span class="ti">🏁</span><b>Gara</b><span>Argomento, numero e durata delle manches, tutti contro tutti o a squadre.</span></button>
         <a class="ttile" href="mosaico.html" target="_blank" rel="noopener"><span class="ti">📊</span><b>Vista alunni</b><span>Esercitazione, classifica live e report. Si apre in una nuova scheda.</span></a>
+        <button class="ttile" id="tileArchivio"><span class="ti">🗂️</span><b>Archivio gare</b><span>Tutte le gare svolte: classifiche, squadre, CSV.</span></button>
         <button class="ttile" id="tilePulizia"><span class="ti">🧹</span><b>Pulizia dati</b><span>Cancella i risultati delle gare e le presenze.</span></button>
       </div>
       <button class="ghostbtn small" id="tEsci">Esci dal cruscotto</button>
@@ -1531,6 +1532,7 @@ function renderTeacherPanel(){
   document.getElementById('tileGara').addEventListener('click', () => renderTeacherGara());
   document.getElementById('tEsci').addEventListener('click', esciDocente);
   document.getElementById('tilePulizia').addEventListener('click', renderTeacherPulizia);
+  document.getElementById('tileArchivio').addEventListener('click', renderTeacherArchivio);
 }
 
 // ---------- impostazioni e squadre ----------
@@ -1667,11 +1669,15 @@ function garaImpostazione(body){
     const teams = modoSel === 'squadre' ? SQUADRE.slice(0, n).map(x => ({ nome: x[0], colore: x[1], membri: [] })) : [];
     q('sCrea').disabled = true;
     try{
-      await db.collection('game').doc('state').set({
+      // prima di sovrascrivere, la gara precedente finisce nell'archivio con i suoi risultati
+      if(t.state && t.state.sessionId) await archiviaGara(t.state, null).catch(e => console.warn('archivio non aggiornato', e));
+      const nuova = {
         sessionId: Date.now(), topic: argomenti.join('+'), nManche: Number(q('sManche').value),
         manche: 0, startAt: null, duration: Number(q('sDurata').value) * 1000,
         mode: modoSel, teams, updatedAt: Date.now()
-      });
+      };
+      await db.collection('game').doc('state').set(nuova);
+      archiviaGara(nuova, []).catch(e => console.warn('archivio non aggiornato', e));
       t.setup = false;
       garaErr('');
     }catch(e){ console.error(e); q('sCrea').disabled = false; garaErr('Creazione non riuscita: controlla connessione e regole Firestore.'); }
@@ -1752,6 +1758,11 @@ function garaStato(){
     btn.textContent = prossima ? `Avvia la manche ${prossima}` : 'Avvia';
   }
   if(pod) pod.hidden = !(info.phase === 'finished' && info.manche >= n);
+  // a ogni manche conclusa (e quando arrivano nuovi punteggi) si aggiorna la scheda in archivio
+  if(info.phase === 'finished'){
+    const firma = d.sessionId + '#' + info.manche + '#' + t.scores.length;
+    if(t.firmaArchivio !== firma){ t.firmaArchivio = firma; archiviaGara(d, t.scores).catch(e => console.warn('archivio non aggiornato', e)); }
+  }
   // squadre bloccate mentre si gioca
   const blocca = info.phase === 'countdown' || info.phase === 'running';
   document.querySelectorAll('#gPart select, #gPart .chip-x, #gPart .gpbtn').forEach(el => { el.disabled = blocca; });
@@ -1831,6 +1842,105 @@ function garaPartecipanti(){
   garaStato();
 }
 
+// ---------- Archivio gare (collezione "gare": una scheda per gara) ----------
+// scores = null: li legge dal database
+async function archiviaGara(d, scores){
+  if(!db || !d || !d.sessionId) return;
+  if(scores === null){
+    const snap = await db.collection('scores').where('sessionId', '==', d.sessionId).get();
+    scores = snap.docs.map(x => x.data());
+  }
+  const n = nMancheDi(d);
+  const finale = computeFinal(scores || [], n);
+  const squadre = aSquadre(d);
+  let classificaSq = [];
+  if(squadre){
+    const valori = {}; finale.forEach(e => { valori[e.key] = e.total; });
+    classificaSq = classificaSquadre(d, valori).map(c => ({ nome: c.t.nome, colore: c.t.colore, media: c.media, giocato: c.n, membri: (c.t.membri || []).slice() }));
+  }
+  const mancheGiocate = (scores || []).reduce((m, e) => Math.max(m, Number(e.manche) || 0), 0);
+  await db.collection('gare').doc(String(d.sessionId)).set({
+    sessionId: d.sessionId, topic: d.topic || '', topicTitle: topicTitle(d.topic), nManche: n, duration: d.duration || DURATA_MS,
+    mode: squadre ? 'squadre' : 'singola', teams: squadre ? d.teams : [], mancheGiocate,
+    classifica: finale.map(e => ({ name: e.name, m: e.m, total: e.total, squadra: squadre ? (d.teams[squadraDi(d, e.key)] || {}).nome || '' : '' })),
+    squadre: classificaSq, aggiornata: Date.now()
+  }, { merge: true });
+}
+function dataOra(ts){
+  const d = new Date(ts);
+  return d.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' }) + ' ' + d.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+}
+async function renderTeacherArchivio(){
+  stopAll();
+  state = null; updateScore(); renderHud('none'); setModeLabel('docente · archivio');
+  panel.innerHTML = `
+    <div class="center-screen has-back">
+      <button class="backlink" id="aBack" aria-label="Torna al cruscotto">← Cruscotto</button>
+      <h2>Archivio gare</h2>
+      <div id="aBody" class="tgara-body"><div class="board-note">Carico l'archivio…</div></div>
+    </div>`;
+  document.getElementById('aBack').addEventListener('click', renderTeacherPanel);
+  let gare = [];
+  try{ const snap = await db.collection('gare').get(); gare = snap.docs.map(x => x.data()); }
+  catch(e){ console.error(e); document.getElementById('aBody').innerHTML = '<div class="board-note err">Non riesco a leggere l\'archivio: controlla connessione e regole Firestore.</div>'; return; }
+  const body = document.getElementById('aBody');
+  if(!body) return;
+  gare.sort((a, b) => b.sessionId - a.sessionId);
+  if(!gare.length){ body.innerHTML = '<div class="empty-board">Nessuna gara in archivio. Le gare create da ora in poi verranno salvate qui.</div>'; return; }
+  body.innerHTML = `<div class="alist">${gare.map(g => {
+    const vinc = g.mode === 'squadre' ? (g.squadre && g.squadre[0] && g.squadre[0].giocato ? 'Squadra ' + g.squadre[0].nome : '') : (g.classifica && g.classifica[0] ? g.classifica[0].name : '');
+    return `<button class="arow" data-sid="${g.sessionId}">
+      <span class="adate">${dataOra(g.sessionId)}</span>
+      <span class="atitle">${U.esc(g.topicTitle || topicTitle(g.topic))}</span>
+      <span class="ameta">${g.mode === 'squadre' ? (g.teams || []).length + ' squadre' : 'tutti contro tutti'} · ${g.mancheGiocate || 0}/${g.nManche} manches · ${(g.classifica || []).length} alunni${vinc ? ' · 🥇 ' + U.esc(vinc) : ''}</span>
+    </button>`; }).join('')}</div>`;
+  body.querySelectorAll('.arow').forEach(b => b.addEventListener('click', () => {
+    const g = gare.find(x => String(x.sessionId) === b.getAttribute('data-sid'));
+    if(g) renderSchedaGara(g);
+  }));
+}
+function renderSchedaGara(g){
+  const squadre = g.mode === 'squadre';
+  const n = g.nManche || N_MANCHES;
+  const sq = squadre && (g.squadre || []).length ? `<div class="instr">Squadre (media dei componenti)</div>
+    <table class="board-table wide"><thead><tr><th></th><th>Squadra</th><th>Componenti</th><th class="pts">Media</th></tr></thead><tbody>${g.squadre.map((c, i) => `<tr><td class="rank">${i + 1}</td>
+      <td class="name">${pallino(c)} ${U.esc(c.nome)}</td><td>${(c.membri || []).map(k => U.esc(((g.classifica || []).find(e => nameKey(e.name) === k) || { name: k }).name)).join(', ') || '<span class="dim">—</span>'}</td><td class="pts">${c.media}</td></tr>`).join('')}</tbody></table>` : '';
+  const ind = (g.classifica || []).length ? `<div class="instr">${squadre ? 'Punteggi individuali' : 'Classifica'}</div>
+    <table class="board-table wide"><thead><tr><th></th><th>Alunno</th>${squadre ? '<th>Squadra</th>' : ''}${Array.from({ length: n }, (_, i) => `<th class="pts">M${i + 1}</th>`).join('')}<th class="pts">Tot.</th></tr></thead>
+    <tbody>${g.classifica.map((e, i) => `<tr><td class="rank">${i + 1}</td><td class="name">${U.esc(e.name)}</td>${squadre ? `<td>${U.esc(e.squadra || '—')}</td>` : ''}${(e.m || []).map(x => `<td class="pts">${x}</td>`).join('')}<td class="pts">${e.total}</td></tr>`).join('')}</tbody></table>`
+    : '<div class="empty-board">Nessun punteggio registrato in questa gara.</div>';
+  panel.innerHTML = `
+    <div class="center-screen has-back">
+      <button class="backlink" id="sBack" aria-label="Torna all'archivio">← Archivio</button>
+      <h2>${U.esc(g.topicTitle || topicTitle(g.topic))}</h2>
+      <div class="tsum">${dataOra(g.sessionId)} · ${squadre ? (g.teams || []).length + ' squadre' : 'tutti contro tutti'} · ${g.mancheGiocate || 0} di ${n} manches giocate</div>
+      ${sq}${ind}
+      <div class="trow">
+        <button class="ghostbtn" id="sCsv"${(g.classifica || []).length ? '' : ' disabled'}>Scarica CSV</button>
+        <button class="ghostbtn" id="sDel">Elimina dall'archivio</button>
+      </div>
+      <div class="board-note" id="sNote"></div>
+    </div>`;
+  document.getElementById('sBack').addEventListener('click', renderTeacherArchivio);
+  document.getElementById('sCsv').addEventListener('click', () => {
+    const cell = v => { const x = String(v == null ? '' : v); return /[;"\n]/.test(x) ? '"' + x.replace(/"/g, '""') + '"' : x; };
+    const righe = [['Posizione', 'Alunno'].concat(squadre ? ['Squadra'] : [], Array.from({ length: n }, (_, i) => 'Manche ' + (i + 1)), ['Totale'])];
+    (g.classifica || []).forEach((e, i) => righe.push([i + 1, e.name].concat(squadre ? [e.squadra || ''] : [], e.m || [], [e.total])));
+    if(squadre){ righe.push([]); righe.push(['Posizione', 'Squadra', 'Media', 'Componenti che hanno giocato']); (g.squadre || []).forEach((c, i) => righe.push([i + 1, c.nome, c.media, c.giocato])); }
+    const csv = '\ufeff' + righe.map(r => r.map(cell).join(';')).join('\r\n');
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+    const dt = new Date(g.sessionId);
+    a.download = `gara-${dt.getFullYear()}${String(dt.getMonth() + 1).padStart(2, '0')}${String(dt.getDate()).padStart(2, '0')}-${String(g.topic).replace(/[^a-z0-9+-]/gi, '')}.csv`;
+    document.body.appendChild(a); a.click(); a.remove();
+  });
+  document.getElementById('sDel').addEventListener('click', async () => {
+    if(!window.confirm('Eliminare questa gara dall\'archivio? I punteggi già salvati nel database non vengono toccati.')) return;
+    try{ await db.collection('gare').doc(String(g.sessionId)).delete(); renderTeacherArchivio(); }
+    catch(e){ console.error(e); const n2 = document.getElementById('sNote'); if(n2){ n2.className = 'board-note err'; n2.textContent = 'Eliminazione non riuscita: controlla connessione e regole Firestore.'; } }
+  });
+}
+
 // ---------- sezione Pulizia dati ----------
 function renderTeacherPulizia(){
   stopAll();
@@ -1842,7 +1952,8 @@ function renderTeacherPulizia(){
       <div class="tsec">
         <div class="trow"><button class="ghostbtn" id="tDelGara">Cancella i risultati della gara attuale</button></div>
         <div class="trow"><button class="ghostbtn" id="tDelAll">Cancella tutti i risultati e le presenze</button></div>
-        <div class="board-note">Le presenze contengono anche lo storico del Report: scarica prima il CSV dalla Vista alunni.</div>
+        <div class="trow"><button class="ghostbtn" id="tDelArch">Cancella l'archivio delle gare</button></div>
+        <div class="board-note">Le presenze contengono anche lo storico del Report: scarica prima il CSV dalla Vista alunni. L'archivio delle gare non viene toccato dalle prime due operazioni.</div>
         <div class="board-note" id="tDelNote"></div>
       </div>
     </div>`;
@@ -1861,10 +1972,15 @@ function renderTeacherPulizia(){
     let sid = null;
     try{ const s = await db.collection('game').doc('state').get(); sid = s.exists ? s.data().sessionId : null; }catch(e){ console.error(e); }
     if(!sid){ delNote('Nessuna gara attuale.'); return; }
+    // la scheda in archivio resta: la si aggiorna prima di cancellare
+    try{ const st = await db.collection('game').doc('state').get(); if(st.exists) await archiviaGara(st.data(), null); }catch(e){ console.warn(e); }
     cancella('Cancellare i punteggi, i dati live e gli iscritti della gara attuale?', [
       db.collection('scores').where('sessionId', '==', sid),
       db.collection('live').where('sessionId', '==', sid),
       db.collection('players').where('sessionId', '==', sid)]);
+  });
+  document.getElementById('tDelArch').addEventListener('click', () => {
+    cancella('Cancellare TUTTE le schede dell\'archivio delle gare?', [db.collection('gare')]);
   });
   document.getElementById('tDelAll').addEventListener('click', () => {
     cancella('Cancellare TUTTI i punteggi di tutte le gare e tutte le presenze degli alunni?', [

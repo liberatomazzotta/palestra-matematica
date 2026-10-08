@@ -68,6 +68,17 @@ service cloud.firestore {
       allow delete: if true;
     }
 
+    // Archivio gare: una scheda riassuntiva per gara (impostazioni, squadre, classifica finale).
+    match /gare/{gid} {
+      allow read: if true;
+      allow create, update: if request.resource.data.keys().hasAll(['sessionId','topic','nManche','mode'])
+                            && request.resource.data.sessionId is number
+                            && request.resource.data.topic is string
+                            && request.resource.data.nManche is number
+                            && request.resource.data.mode is string;
+      allow delete: if true;
+    }
+
     // Punteggio parziale durante la manche (vista "Gara live" del docente).
     match /live/{lid} {
       allow read: if true;

@@ -447,3 +447,11 @@ a.backlink{text-decoration:none;display:inline-flex;align-items:center;}
 .theory-head{font-family:var(--font-hand);font-size:20px;color:var(--yellow);margin:2px 0 6px;}
 .theory-sep{border:none;border-top:1px dashed var(--line);margin:12px 0;clear:both;}
 .levelrow:has(.topicpick){width:100%;}
+/* archivio gare */
+.alist{display:flex;flex-direction:column;gap:8px;width:100%;}
+.arow{display:grid;grid-template-columns:auto 1fr;gap:2px 12px;text-align:left;padding:12px 14px;border-radius:12px;border:1px solid var(--line);background:var(--panel);color:var(--chalk);cursor:pointer;font-family:var(--font-ui);}
+.arow .adate{grid-row:span 2;font-size:12px;color:var(--chalk-dim);white-space:nowrap;align-self:center;}
+.arow .atitle{font-weight:700;font-size:14.5px;}
+.arow .ameta{font-size:12.5px;color:var(--chalk-dim);}
+@media (hover:hover) and (pointer:fine){ .arow:hover{background:rgba(255,255,255,0.06);} }
+.arow:focus-visible{outline:2px solid var(--chalk-dim);outline-offset:2px;}
