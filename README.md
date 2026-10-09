@@ -97,7 +97,7 @@ Sotto ogni domanda c'è un discreto **Salta →**: nessun punto e nessuna penali
 ## Errori frequenti e report per alunno
 
 - **Vista alunni → Esercitazione** (allenamento e Guidami): in alto la fascia "Errori più frequenti oggi" (tipi di esercizio sbagliati da più alunni collegati); sulla tessera compare "Punto debole: …" quando un alunno ha almeno 2 errori e almeno il 40% di errori su un tipo di esercizio.
-- **Vista alunni → Report**: una riga per alunno (argomenti, minuti, risposte, % corrette, esercizi guidati, punti deboli). Filtri per periodo (oggi, 7 giorni, 30 giorni, tutto) e argomento; clic su un alunno per il dettaglio per tipo di esercizio. "Scarica CSV" si apre con Excel o Fogli Google; "Stampa / PDF" per archiviare.
+- **Vista alunni → Esercitazione → Report per alunno**: una riga per alunno (argomenti, minuti, risposte, % corrette, esercizi guidati, punti deboli). Filtri per periodo (oggi, 7 giorni, 30 giorni, tutto) e argomento; clic su un alunno per il dettaglio per tipo di esercizio. "Scarica CSV" si apre con Excel o Fogli Google; "Stampa / PDF" per archiviare.
 - Contano allenamento e Guidami (in Guidami solo il primo tentativo di ogni passo). La gara è esclusa.
 - I dati stanno nello stesso documento `presence` di ogni alunno (campo `giorni`) e viaggiano con le scritture già esistenti: nessuna scrittura in più e nessuna modifica alle rules.
 - Attenzione: "Pulizia dati" → cancellare le presenze cancella anche lo storico del report. Scarica prima il CSV.

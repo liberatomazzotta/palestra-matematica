@@ -368,15 +368,19 @@ function render(force){
   const out = effective === 'gara' ? renderGara() : effective === 'report' ? renderReport() : renderAllenamento();
   if(!document.getElementById('mbody')){
     root.innerHTML = `<div class="mosaic-head"><div class="mtitle"><a class="mback" href="index.html#cruscotto">← Cruscotto</a><h1>Vista alunni</h1></div>
-      <div class="mtabs"><button data-v="allenamento" id="tabA" title="Allenamento e Guidami">Esercitazione</button><button data-v="gara" id="tabG">Gara</button><button data-v="report" id="tabR">Report</button></div>
+      <div class="mtabs"><button data-v="allenamento" id="tabA" title="Allenamento e Guidami">Esercitazione</button><button data-v="gara" id="tabG">Gara</button></div>
       <div class="mbar" id="mbar"></div></div><div id="mbody"></div>`;
-    root.querySelectorAll('.mtabs button').forEach(b => b.addEventListener('click', () => { view = b.getAttribute('data-v'); if(view === 'report') repDocs = null; render(true); }));
+    root.querySelectorAll('.mtabs button').forEach(b => b.addEventListener('click', () => { view = b.getAttribute('data-v'); render(true); }));
+    // dentro Esercitazione: passaggio alla vista live <-> report
+    root.addEventListener('click', e => { const b = e.target.closest('[data-go]'); if(!b) return; view = b.getAttribute('data-go'); if(view === 'report') repDocs = null; render(true); });
   }
-  document.getElementById('tabA').classList.toggle('on', effective === 'allenamento');
+  document.getElementById('tabA').classList.toggle('on', effective === 'allenamento' || effective === 'report');
   document.getElementById('tabG').classList.toggle('on', effective === 'gara');
-  document.getElementById('tabR').classList.toggle('on', effective === 'report');
   document.getElementById('mbar').innerHTML = out.bar;
-  document.getElementById('mbody').innerHTML = out.body;
+  const sub = effective === 'allenamento'
+    ? '<div class="msub"><span class="msub-on">Live</span><button class="msub-btn" data-go="report">📋 Report per alunno</button></div>'
+    : effective === 'report' ? '<div class="msub"><button class="msub-btn" data-go="allenamento">Live</button><span class="msub-on">📋 Report per alunno</span></div>' : '';
+  document.getElementById('mbody').innerHTML = sub + out.body;
   if(effective === 'report') bindReport();
 }
 
