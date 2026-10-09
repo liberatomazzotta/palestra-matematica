@@ -35,7 +35,6 @@
 
 const CFG = window.CONFIG || {};
 const FB = CFG.firebase || {};
-const TEACHER_PIN = String(CFG.codiceDocente || 'docente');
 const DURATA_MS = (CFG.durataMancheSecondi || 120) * 1000;
 const CONTO_MS = (CFG.contoAllaRovesciaSecondi || 5) * 1000;
 const N_MANCHES = 3;
@@ -101,6 +100,7 @@ function initFirebase(){
   if(!configured() || typeof firebase === 'undefined') return;
   try{ firebase.initializeApp(FB); db = firebase.firestore(); }
   catch(e){ console.error(e); db = null; }
+  try{ auth = db && firebase.auth ? firebase.auth() : null; }catch(e){ console.error(e); auth = null; }
 }
 
 // i link del footer (cruscotto, crediti) si vedono solo nei menu, non durante un'attività
@@ -640,6 +640,9 @@ function setMenuView(v){
   menuView = v; drawMenu();
 }
 function drawMenu(){
+  // con Firebase l'alunno entra con il codice della classe e sceglie il suo nome dall'elenco
+  if(modoClassi() && !ALUNNO){ renderIngresso(); return; }
+  if(modoClassi()) seguiClasseAlunno();
   stopAll();
   state = null;
   updateScore();
@@ -647,9 +650,10 @@ function drawMenu(){
   renderHud('none');
   let nome = '';
   try{ nome = localStorage.getItem('palestra_nome') || ''; }catch(e){}
+  if(ALUNNO) nome = ALUNNO.nome;
 
   const livelli = [['auto', 'Progressivo (consigliato)'], ['1', 'Base'], ['2', 'Intermedio'], ['3', 'Avanzato'], ['4', 'Esperto']];
-  const campoNome = `
+  const campoNome = ALUNNO ? `<input type="hidden" id="nomeInput" value="${U.esc(nome)}">` : `
       <div class="field">
         <label class="instr" for="nomeInput">Cognome e Nome</label>
         <input class="nameinput" id="nomeInput" maxlength="30" placeholder="Scrivi Cognome e Nome" autocomplete="off" value="${U.esc(nome)}">
@@ -689,6 +693,7 @@ function drawMenu(){
   } else {
     corpo = `
       <div class="mascot-wrap" id="mascotWrap">${MASCOTTE}${MASCOTTE_TIP}</div>
+      ${ALUNNO ? `<div class="chi-sono">Ciao <b>${U.esc(ALUNNO.nome)}</b> · classe ${U.esc(nomeClasse() || ALUNNO.classe || '')} · <button class="linkbtn" id="nonSonoIo">Non sei tu?</button></div>` : ''}
       <div class="section-title">Cosa vuoi fare oggi?</div>
       <div class="board-note">Decidi come migliorare: esercizi guidati, allenamento o gara?</div>
       <div class="choice-home">
@@ -737,6 +742,7 @@ function drawMenu(){
     try{ localStorage.setItem('palestra_nome', val); }catch(e){}
     entraInGara(val);
   });
+  if(q('nonSonoIo')) q('nonSonoIo').addEventListener('click', () => { if(window.confirm('Uscire? Dovrai inserire di nuovo il codice della classe e scegliere il tuo nome.')) esciAlunno(); });
   if(q('mascotWrap')) attivaMascotte();
 }
 
@@ -748,7 +754,7 @@ const PRES_THROTTLE_MS = 8000, PRES_BEAT_MS = 40000;
 let pres = null;
 function presKey(n){ return nameKey(n).replace(/\//g, '_').slice(0, 60); }
 function presFlush(){
-  if(!pres || !db) return;
+  if(!pres || !db || !CLASSE) return;
   if(pres.timer){ clearTimeout(pres.timer); pres.timer = null; }
   pres.lastWrite = Date.now();
   const lvl = state && state.fixedLevel ? state.fixedLevel : (state ? levelForCount(state.correctCount) : 1);
@@ -771,8 +777,8 @@ function presFlush(){
   });
   pres.delta = {};
   const extra = Object.keys(giorno).length ? { giorni: { [chiaveGiorno()]: giorno } } : {};
-  db.collection('presence').doc(pres.key).set(Object.assign({
-    name: pres.name, topic: pres.topicId, topicTitle: topicTitle(pres.topicId), level: lvl,
+  C('presence').doc(pres.key).set(Object.assign({
+    uid: uidCorrente(), name: pres.name, topic: pres.topicId, topicTitle: topicTitle(pres.topicId), level: lvl,
     correct: pres.correct, wrong: pres.wrong, streak: pres.streak, recent: pres.recent,
     startedAt: pres.startedAt, lastAnswerTs: pres.lastAnswerTs, lastTs: Date.now(), active: pres.active,
     modo: pres.modo, passo: pres.passo, passiTot: pres.passiTot, esercizio: pres.esercizio, skipped: pres.skipped || 0
@@ -790,8 +796,8 @@ function presDelta(topic){
 }
 function presStart(name, topicId, modo){
   presStop(true);
-  if(!db || !name) return;
-  pres = { key: presKey(name), name: name.slice(0, 30), topicId, correct: 0, wrong: 0, streak: 0, recent: '',
+  if(!db || !CLASSE || !name) return;
+  pres = { key: presKey(name), name: name.slice(0, 60), topicId, correct: 0, wrong: 0, streak: 0, recent: '',
     startedAt: Date.now(), lastAnswerTs: 0, active: true, lastWrite: 0, timer: null, beat: null,
     modo: modo || 'pratica', passo: 0, passiTot: 0, esercizio: 0, delta: {}, lastFlushTs: 0, skipped: 0 };
   pres.beat = setInterval(presFlush, PRES_BEAT_MS);
@@ -847,11 +853,11 @@ function presStop(silent){
 const LIVE_THROTTLE_MS = 5000;
 let live = null;
 function liveFlush(final){
-  if(!live || !db || !state) return;
+  if(!live || !db || !CLASSE || !state) return;
   if(live.timer){ clearTimeout(live.timer); live.timer = null; }
   live.lastWrite = Date.now();
-  db.collection('live').doc(live.id).set({
-    sessionId: state.sessionId, manche: state.manche, name: state.name, score: state.score,
+  C('live').doc(live.id).set({
+    uid: uidCorrente(), sessionId: state.sessionId, manche: state.manche, name: state.name, score: state.score,
     correct: state.correctCount, wrong: state.wrongCount, lastTs: Date.now(), done: !!final
   }).catch(e => console.warn('live non scritto', e));
 }
@@ -1428,18 +1434,18 @@ function entraInGara(name){
   stopAll();
   setFooterVisible(false);
   attivaCalc('gara');
-  if(!db){
-    renderMsg('Gara non disponibile', 'La gara richiede la configurazione Firebase (config.js).', { err: true });
+  if(!db || !CLASSE){
+    renderMsg('Gara non disponibile', db ? 'Entra prima nella tua classe con il codice.' : 'La gara richiede la configurazione Firebase (config.js).', { err: true });
     return;
   }
   const ctx = {
-    name: name.slice(0, 24), data: null, ready: false, err: null,
+    name: name.slice(0, 60), data: null, ready: false, err: null,
     screen: null, runKey: null, played: false, unsub: null, tickId: null, scoreUnsub: null
   };
   garaCtx = ctx;
   setModeLabel('gara');
   renderHud('none');
-  ctx.unsub = db.collection('game').doc('state').onSnapshot(
+  ctx.unsub = GARA().onSnapshot(
     snap => { ctx.data = snap.exists ? snap.data() : null; ctx.ready = true; ctx.err = null; iscriviInGara(ctx); },
     err => { console.error(err); ctx.err = err; }
   );
@@ -1450,9 +1456,9 @@ function entraInGara(name){
 // L'alunno compare nella sala d'attesa del docente (collezione "players"), una volta per gara
 function iscriviInGara(ctx){
   const sid = ctx.data && ctx.data.sessionId;
-  if(!sid || ctx.iscritto === sid || !db) return;
+  if(!sid || ctx.iscritto === sid || !db || !CLASSE) return;
   ctx.iscritto = sid;
-  db.collection('players').doc(sid + '_' + presKey(ctx.name)).set({ sessionId: sid, name: ctx.name, ts: Date.now() })
+  C('players').doc(sid + '_' + presKey(ctx.name)).set({ uid: uidCorrente(), sessionId: sid, name: ctx.name, ts: Date.now() })
     .catch(e => { console.warn('iscrizione alla gara non riuscita', e); ctx.iscritto = null; });
 }
 // Riga "sei nella squadra..." per l'alunno
@@ -1567,10 +1573,10 @@ function beginGara(info, rk){
 function sleepMs(ms){ return new Promise(r => setTimeout(r, ms)); }
 
 async function saveScore(s){
-  if(!db) return 'errore';
+  if(!db || !CLASSE) return 'errore';
   try{
-    const w = db.collection('scores').add({
-      sessionId: s.sessionId, topic: s.topicId, name: s.name, score: s.score, manche: s.manche, ts: Date.now()
+    const w = C('scores').add({
+      uid: uidCorrente(), sessionId: s.sessionId, topic: s.topicId, name: s.name, score: s.score, manche: s.manche, ts: Date.now()
     });
     const res = await Promise.race([w.then(() => 'ok'), sleepMs(8000).then(() => 'lento')]);
     return res;
@@ -1620,7 +1626,7 @@ async function finishManche(){
 
   const myKey = nameKey(s.name);
   stopScoreListener();
-  g.scoreUnsub = db.collection('scores').where('sessionId', '==', s.sessionId).onSnapshot(snap => {
+  g.scoreUnsub = C('scores').where('sessionId', '==', s.sessionId).onSnapshot(snap => {
     const host = document.getElementById('mancheLbHost');
     if(!host) return;
     const mine = snap.docs.map(d => d.data()).filter(e => e.manche === s.manche);
@@ -1768,9 +1774,9 @@ async function renderFinalPodium(sessionId, tornaA){
   let dati = {};
   try{
     if(!db) throw new Error('no db');
-    const snap = await db.collection('scores').where('sessionId', '==', sessionId).get();
+    const snap = await C('scores').where('sessionId', '==', sessionId).get();
     all = snap.docs.map(d => d.data());
-    const st = await db.collection('game').doc('state').get();
+    const st = await GARA().get();
     if(st.exists && st.data().sessionId === sessionId) dati = st.data();
   }catch(e){ console.error(e); errore = true; }
   const back = () => (tornaA || renderMenu)();
@@ -1824,62 +1830,536 @@ async function renderFinalPodium(sessionId, tornaA){
   playCelebration();
 }
 
-// ================= CRUSCOTTO DOCENTE =================
-// Accesso docente ricordato su questo browser per 6 ore (vale anche per la Vista alunni)
-const CHIAVE_DOC = 'palestra_docente_fino';
-function ricordaDocente(){ try{ localStorage.setItem(CHIAVE_DOC, String(Date.now() + 6 * 3600 * 1000)); }catch(e){} }
-function docenteRicordato(){ try{ return Number(localStorage.getItem(CHIAVE_DOC) || 0) > Date.now(); }catch(e){ return false; } }
-function esciDocente(){ try{ localStorage.removeItem(CHIAVE_DOC); }catch(e){} renderMenu(); }
-function renderTeacherGate(errMsg){
-  if(!errMsg && docenteRicordato() && configured()){ renderTeacherPanel(); return; }
-  stopAll();
-  state = null; updateScore(); renderHud('none'); setModeLabel('docente');
-  panel.innerHTML = `
-    <div class="center-screen has-back">
-      <button class="backlink" id="pinBack" aria-label="Torna alla pagina iniziale">← Indietro</button>
-      <h2>Cruscotto docente</h2>
-      <input type="password" class="nameinput" id="pinInput" placeholder="Codice" autocomplete="off">
-      <button class="startbtn" id="pinBtn" ${configured() ? '' : 'disabled'}>Entra</button>
-      ${errMsg ? `<p class="board-note err">${U.esc(errMsg)}</p>` : ''}
-      ${configured() ? '' : '<p class="board-note err">Manca la configurazione Firebase in config.js.</p>'}
-    </div>`;
-  const go = () => {
-    if(document.getElementById('pinInput').value.trim() === TEACHER_PIN){ ricordaDocente(); renderTeacherPanel(); }
-    else renderTeacherGate('Codice errato. Riprova.');
-  };
-  document.getElementById('pinBtn').addEventListener('click', go);
-  document.getElementById('pinInput').addEventListener('keydown', e => { if(e.key === 'Enter') go(); });
-  document.getElementById('pinInput').focus();
-  document.getElementById('pinBack').addEventListener('click', renderMenu);
+// ================= ACCESSO: docenti (Google) e alunni (codice classe + nome dall'elenco) =================
+// Firestore: docenti/{email}, codici/{codice}, classi/{cid} (+ membri, stato, scores, live, presence, players, gare).
+// Senza Firebase configurato l'app funziona solo in allenamento, con il nome scritto a mano (come prima).
+let auth = null;
+let CLASSE = null;          // id della classe in uso (quella dell'alunno o quella scelta dal docente)
+let CLASSE_DATI = null;     // documento della classe in uso
+let unsubClasse = null;
+let ALUNNO = null;          // { cid, codice, nome, classe }
+let DOCENTE = null;         // { email, nome, ruolo }
+let CLASSI_DOC = [];        // classi del docente: [{ id, nome, codice, ... }]
+const K_ALUNNO = 'palestra_alunno', K_CLASSE_DOC = 'palestra_classe_docente';
+const ALFABETO_CODICE = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+const SOTTOCOLLEZIONI = ['scores', 'live', 'presence', 'players', 'gare', 'stato', 'membri'];
+
+function C(nome){ return db.collection('classi').doc(CLASSE).collection(nome); }
+function GARA(){ return C('stato').doc('gara'); }
+function classeRef(id){ return db.collection('classi').doc(id || CLASSE); }
+function utente(){ return auth ? auth.currentUser : null; }
+function uidCorrente(){ const u = utente(); return u ? u.uid : null; }
+function modoClassi(){ return !!(db && auth); }
+function leggiLS(k){ try{ return JSON.parse(localStorage.getItem(k) || 'null'); }catch(e){ return null; } }
+function scriviLS(k, v){ try{ if(v == null) localStorage.removeItem(k); else localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
+let authInizio = null;
+function authPronto(){
+  if(!auth) return Promise.resolve(null);
+  if(!authInizio) authInizio = new Promise(res => { const off = auth.onAuthStateChanged(u => { off(); res(u); }); });
+  return authInizio;
+}
+async function utenteQualsiasi(){ await authPronto(); if(!utente()) await auth.signInAnonymously(); return utente(); }
+function nomeClasse(){ return CLASSE_DATI ? CLASSE_DATI.nome : ''; }
+function tagClasse(){ return nomeClasse() ? `<div class="tclasse-tag">Classe ${U.esc(nomeClasse())}</div>` : ''; }
+function normaNome(n){ return String(n || '').trim().replace(/\s+/g, ' ').slice(0, 40); }
+function leggiElenco(testo){
+  const visti = new Set(), out = [];
+  String(testo || '').split(/\r?\n|;/).map(normaNome).filter(Boolean).forEach(n => { const k = n.toLowerCase(); if(!visti.has(k)){ visti.add(k); out.push(n); } });
+  return out.sort((a, b) => a.localeCompare(b, 'it'));
 }
 
-// Home del cruscotto: piastrelle con le funzioni principali
+// Segue il documento della classe: impostazioni (argomenti, calcolatrice) sempre aggiornate
+function seguiClasse(cid, alErrore){
+  if(unsubClasse){ try{ unsubClasse(); }catch(e){} unsubClasse = null; }
+  CLASSE = cid || null; CLASSE_DATI = null;
+  if(!CLASSE || !db) return;
+  unsubClasse = classeRef(CLASSE).onSnapshot(snap => {
+    if(!snap.exists){ CLASSE_DATI = null; if(alErrore) alErrore('assente'); return; }
+    CLASSE_DATI = snap.data();
+    impostaVisibili(CLASSE_DATI.impostazioni || null);
+    ridisegnaMenuSeAperto();
+  }, e => { console.warn('classe non leggibile', e); if(alErrore) alErrore('negato'); });
+}
+function ridisegnaMenuSeAperto(){
+  if(!state && !garaCtx && !teacherCtx && !guidaCtx && document.querySelector('#panel .menu:not(.ingresso)')) drawMenu();
+}
+async function salvaImpostazioni(patch){
+  // VISIBILI e CALC sono sempre la versione più recente (aggiornati dal database e dai salvataggi locali)
+  const imp = Object.assign({}, (CLASSE_DATI && CLASSE_DATI.impostazioni) || {}, { allenamento: VISIBILI.allenamento, guidami: VISIBILI.guidami, calcolatrice: CALC }, patch);
+  const prima = (CLASSE_DATI && CLASSE_DATI.impostazioni) || {};
+  aggiornaClasseLocale({ impostazioni: imp });
+  impostaVisibili(imp);
+  try{ await classeRef().update({ impostazioni: imp }); }
+  catch(e){ aggiornaClasseLocale({ impostazioni: prima }); impostaVisibili(prima); throw e; }
+}
+
+// ---------- alunno ----------
+function classePersa(motivo){
+  ALUNNO = null; scriviLS(K_ALUNNO, null); seguiClasse(null);
+  renderIngresso(motivo === 'assente' ? 'La classe non esiste più: chiedi il nuovo codice al docente.'
+    : 'Il codice della classe è cambiato: chiedi il nuovo codice al docente.');
+}
+function seguiClasseAlunno(){
+  if(!ALUNNO) return;
+  if(CLASSE !== ALUNNO.cid || !unsubClasse) seguiClasse(ALUNNO.cid, classePersa);
+}
+// all'avvio: l'alunno era già entrato su questo computer
+async function riprendiAlunno(){
+  const a = leggiLS(K_ALUNNO);
+  if(!a || !a.cid || !a.nome) return false;
+  ALUNNO = a;
+  try{
+    await utenteQualsiasi();
+    const m = await classeRef(a.cid).collection('membri').doc(uidCorrente()).get().catch(() => null);
+    // accesso anonimo perso (o nuovo browser): si rientra con codice e nome già noti
+    if(!m || !m.exists || (m.data() || {}).nome !== a.nome)
+      await classeRef(a.cid).collection('membri').doc(uidCorrente()).set({ codice: a.codice, nome: a.nome, ts: Date.now() }).catch(() => {});
+  }catch(e){ console.warn(e); }
+  seguiClasseAlunno();
+  return true;
+}
+function renderIngresso(msg){
+  stopAll();
+  state = null; updateScore(); setModeLabel(''); renderHud('none');
+  menuView = 'home';
+  panel.innerHTML = `
+    <div class="menu ingresso">
+      <div class="mascot-wrap" id="mascotWrap">${MASCOTTE}${MASCOTTE_TIP}</div>
+      <div class="section-title">Entra nella tua classe</div>
+      <div class="board-note">Scrivi il codice che ti ha dato il docente.</div>
+      <input class="nameinput codice-in" id="codiceInput" maxlength="10" placeholder="Codice classe" autocomplete="off" autocapitalize="characters" spellcheck="false">
+      <button class="startbtn" id="codiceBtn">Avanti</button>
+      <div class="board-note${msg ? ' err' : ''}" id="codiceNote">${msg ? U.esc(msg) : ''}</div>
+    </div>`;
+  const inp = document.getElementById('codiceInput');
+  const vai = () => entraConCodice(inp.value);
+  document.getElementById('codiceBtn').addEventListener('click', vai);
+  inp.addEventListener('keydown', e => { if(e.key === 'Enter') vai(); });
+  inp.addEventListener('input', () => { const p = inp.selectionStart; inp.value = inp.value.toUpperCase(); try{ inp.setSelectionRange(p, p); }catch(e){} });
+  attivaMascotte();
+}
+async function entraConCodice(raw){
+  const codice = String(raw || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  const note = document.getElementById('codiceNote'), btn = document.getElementById('codiceBtn');
+  const err = t => { if(note){ note.className = 'board-note err'; note.textContent = t; } if(btn) btn.disabled = false; };
+  if(codice.length < 4){ err('Scrivi il codice della classe.'); return; }
+  if(btn) btn.disabled = true;
+  if(note){ note.className = 'board-note'; note.textContent = 'Controllo il codice…'; }
+  try{
+    await utenteQualsiasi();
+    const c = await db.collection('codici').doc(codice).get();
+    if(!c.exists){ err('Codice non valido: controlla e riprova.'); return; }
+    const cid = c.data().classe;
+    try{ await classeRef(cid).collection('membri').doc(uidCorrente()).set({ codice, nome: null, ts: Date.now() }); }
+    catch(e){ console.warn(e); err('Gli ingressi di questa classe sono chiusi: chiedi al docente di aprirli.'); return; }
+    const snap = await classeRef(cid).get();
+    renderSceltaNome(cid, codice, snap.data());
+  }catch(e){ console.error(e); err('Connessione non riuscita: riprova.'); }
+}
+function renderSceltaNome(cid, codice, dati){
+  const nomi = (dati && dati.alunni) || [];
+  panel.innerHTML = `
+    <div class="menu ingresso has-back">
+      <button class="backlink" id="snBack" aria-label="Torna al codice">← Indietro</button>
+      <div class="section-title">Classe ${U.esc(dati.nome || '')}</div>
+      <div class="board-note">Tocca il tuo nome.</div>
+      ${nomi.length ? `<div class="nomi-grid">${nomi.map((n, i) => `<button class="nomebtn" data-i="${i}">${U.esc(n)}</button>`).join('')}</div>`
+        : '<div class="empty-board">Il docente non ha ancora inserito l\'elenco degli alunni.</div>'}
+      <div class="board-note" id="snNote"></div>
+    </div>`;
+  document.getElementById('snBack').addEventListener('click', () => renderIngresso());
+  panel.querySelectorAll('.nomebtn').forEach(b => b.addEventListener('click', async () => {
+    const nome = nomi[Number(b.getAttribute('data-i'))];
+    panel.querySelectorAll('.nomebtn').forEach(x => { x.disabled = true; });
+    try{
+      await classeRef(cid).collection('membri').doc(uidCorrente()).set({ codice, nome, ts: Date.now() });
+      ALUNNO = { cid, codice, nome, classe: dati.nome || '' };
+      scriviLS(K_ALUNNO, ALUNNO);
+      try{ localStorage.setItem('palestra_nome', nome); }catch(e){}
+      impostaVisibili(dati.impostazioni || null);
+      seguiClasse(cid, classePersa);
+      CLASSE_DATI = dati;
+      renderMenu();
+    }catch(e){
+      console.error(e);
+      const n = document.getElementById('snNote'); if(n){ n.className = 'board-note err'; n.textContent = 'Non riesco a registrarti: riprova o chiedi al docente.'; }
+      panel.querySelectorAll('.nomebtn').forEach(x => { x.disabled = false; });
+    }
+  }));
+}
+function esciAlunno(){
+  const a = ALUNNO;
+  ALUNNO = null; scriviLS(K_ALUNNO, null); seguiClasse(null);
+  if(a && db && uidCorrente()) classeRef(a.cid).collection('membri').doc(uidCorrente()).delete().catch(() => {});
+  renderIngresso();
+}
+
+// ================= CRUSCOTTO DOCENTE =================
+async function renderTeacherGate(msg){
+  stopAll();
+  state = null; updateScore(); renderHud('none'); setModeLabel('docente');
+  if(!db || !auth){ renderMsg('Non disponibile', 'Il cruscotto richiede la configurazione Firebase (config.js).', { err: true }); return; }
+  if(!msg){
+    panel.innerHTML = '<div class="center-screen"><p class="board-note">Connessione…</p></div>';
+    await authPronto();
+    const u = utente();
+    if(u && !u.isAnonymous && u.email){ verificaDocente(); return; }
+  }
+  panel.innerHTML = `
+    <div class="center-screen has-back">
+      <button class="backlink" id="dgBack" aria-label="Torna alla pagina iniziale">← Indietro</button>
+      <h2>Cruscotto docente</h2>
+      <p class="board-note">Accedi con il tuo account Google della scuola.</p>
+      <button class="startbtn gbtn" id="dgLogin"><span class="g">G</span> Accedi con Google</button>
+      ${msg ? `<p class="board-note err">${U.esc(msg)}</p>` : ''}
+    </div>`;
+  document.getElementById('dgBack').addEventListener('click', renderMenu);
+  document.getElementById('dgLogin').addEventListener('click', async () => {
+    try{
+      const p = new firebase.auth.GoogleAuthProvider();
+      p.setCustomParameters({ prompt: 'select_account' });
+      await auth.signInWithPopup(p);
+      verificaDocente();
+    }catch(e){
+      if(e && (e.code === 'auth/popup-closed-by-user' || e.code === 'auth/cancelled-popup-request')) return;
+      console.error(e);
+      renderTeacherGate(e && e.code === 'auth/unauthorized-domain'
+        ? 'Questo indirizzo non è autorizzato in Firebase (Authentication → Impostazioni → Domini autorizzati).'
+        : 'Accesso non riuscito: ' + ((e && e.code) || 'errore'));
+    }
+  });
+}
+async function verificaDocente(){
+  const u = utente();
+  const email = String((u && u.email) || '').toLowerCase();
+  panel.innerHTML = '<div class="center-screen"><p class="board-note">Verifico l\'accesso…</p></div>';
+  const ref = db.collection('docenti').doc(email);
+  let snap;
+  try{
+    snap = await ref.get();
+    if(!snap.exists){
+      const base = { email, nome: (u && u.displayName) || email, ts: Date.now() };
+      // l'amministratore (indicato nelle regole) si registra già attivo; gli altri inviano una richiesta
+      try{ await ref.set(Object.assign({}, base, { ruolo: 'admin', stato: 'attivo' })); }
+      catch(e){ await ref.set(Object.assign({}, base, { ruolo: 'docente', stato: 'richiesta' })); }
+      snap = await ref.get();
+    }
+  }catch(e){ console.error(e); renderAttesaDocente('errore', email); return; }
+  const d = snap.data();
+  if(d.stato !== 'attivo'){ renderAttesaDocente(d.stato, email); return; }
+  DOCENTE = { email, nome: d.nome || email, ruolo: d.ruolo || 'docente' };
+  try{ await caricaClassiDocente(); }catch(e){ console.error(e); }
+  renderTeacherPanel();
+}
+function renderAttesaDocente(stato, email){
+  const testi = {
+    richiesta: ['Richiesta inviata', 'L\'amministratore dell\'app deve approvare il tuo accesso. Quando l\'avrà fatto, torna qui e ricarica la pagina.'],
+    rifiutato: ['Accesso non autorizzato', 'La tua richiesta non è stata approvata. Per informazioni contatta l\'amministratore dell\'app.'],
+    errore: ['Accesso non riuscito', 'Non riesco a verificare il tuo account: controlla la connessione e che le regole di Firestore siano pubblicate.']
+  };
+  const t = testi[stato] || testi.errore;
+  panel.innerHTML = `
+    <div class="center-screen has-back">
+      <button class="backlink" id="atBack" aria-label="Torna alla pagina iniziale">← Indietro</button>
+      <h2>${t[0]}</h2>
+      <p class="board-note">${t[1]}</p>
+      <p class="board-note">${U.esc(email)}</p>
+      <button class="ghostbtn small" id="atEsci">Esci da questo account</button>
+    </div>`;
+  document.getElementById('atBack').addEventListener('click', renderMenu);
+  document.getElementById('atEsci').addEventListener('click', esciDocente);
+}
+async function esciDocente(){
+  DOCENTE = null; CLASSI_DOC = [];
+  seguiClasse(null);
+  try{ if(auth) await auth.signOut(); }catch(e){ console.warn(e); }
+  authInizio = null;
+  renderMenu();
+}
+async function caricaClassiDocente(){
+  const snap = await db.collection('classi').where('docenti', 'array-contains', DOCENTE.email).get();
+  CLASSI_DOC = snap.docs.map(d => Object.assign({ id: d.id }, d.data()))
+    .sort((a, b) => String(a.nome).localeCompare(String(b.nome), 'it', { numeric: true }));
+  let scelta = leggiLS(K_CLASSE_DOC);
+  if(!CLASSI_DOC.some(c => c.id === scelta)) scelta = CLASSI_DOC.length ? CLASSI_DOC[0].id : null;
+  scegliClasseDocente(scelta);
+}
+function scegliClasseDocente(id){
+  scriviLS(K_CLASSE_DOC, id);
+  const c = CLASSI_DOC.find(x => x.id === id);
+  seguiClasse(id);
+  if(c){ CLASSE_DATI = c; impostaVisibili(c.impostazioni || null); }
+}
+function aggiornaClasseLocale(patch){
+  const c = CLASSI_DOC.find(x => x.id === CLASSE);
+  if(c) Object.assign(c, patch);
+  if(CLASSE_DATI) Object.assign(CLASSE_DATI, patch);
+}
+
+// Home del cruscotto: scelta della classe e piastrelle
 function renderTeacherPanel(){
   stopAll();
   state = null; updateScore(); renderHud('none'); setModeLabel('docente');
   if(!db){ renderMsg('Non disponibile', 'Manca la configurazione Firebase.', { err: true }); return; }
+  if(!DOCENTE){ renderTeacherGate(); return; }
+  if(!CLASSI_DOC.length){ renderNuovaClasse(); return; }
+  if(!CLASSI_DOC.some(c => c.id === CLASSE)) scegliClasseDocente(CLASSI_DOC[0].id);
+  const cl = CLASSI_DOC.find(c => c.id === CLASSE);
+  const admin = DOCENTE.ruolo === 'admin';
   panel.innerHTML = `
     <div class="center-screen has-back">
       <button class="backlink" id="tBack" aria-label="Torna alla pagina iniziale">← Indietro</button>
       <h2>Cruscotto docente</h2>
+      <div class="tclasse">
+        <label for="tClasse">Classe</label>
+        <select class="sel" id="tClasse">${CLASSI_DOC.map(c => `<option value="${c.id}"${c.id === CLASSE ? ' selected' : ''}>${U.esc(c.nome)}</option>`).join('')}</select>
+        <button class="ghostbtn small" id="tNuova">＋ Nuova classe</button>
+      </div>
       <div class="tgrid">
+        <button class="ttile" id="tileClasse"><span class="ti">👥</span><b>Classe ${U.esc(cl.nome)}</b><span>Codice d'ingresso <b class="tcode">${U.esc(cl.codice || '—')}</b> · ${(cl.alunni || []).length} alunni${cl.aperta === false ? ' · ingressi chiusi' : ''}</span></button>
         <button class="ttile" id="tileGara"><span class="ti">🏁</span><b>Gara</b><span>Argomento, numero e durata delle manches, tutti contro tutti o a squadre.</span></button>
-        <a class="ttile" href="mosaico.html" target="_blank" rel="noopener"><span class="ti">📊</span><b>Vista alunni</b><span>Esercitazione, classifica live e report. Si apre in una nuova scheda.</span></a>
+        <a class="ttile" href="mosaico.html?c=${encodeURIComponent(CLASSE)}" target="_blank" rel="noopener"><span class="ti">📊</span><b>Vista alunni</b><span>Esercitazione, report e classifica live. Si apre in una nuova scheda.</span></a>
         <button class="ttile" id="tileArgomenti"><span class="ti">📚</span><b>Argomenti</b><span>Scegli argomenti e sezioni per Allenamento e Guidami.</span></button>
         <button class="ttile" id="tileCalc"><span class="ti">🧮</span><b>Calcolatrice</b><span>Mostra o nascondi la calcolatrice a video in Allenamento, Guidami e Gara.</span></button>
         <button class="ttile" id="tileArchivio"><span class="ti">🗂️</span><b>Archivio gare</b><span>Tutte le gare svolte: classifiche, squadre, CSV.</span></button>
         <button class="ttile" id="tilePulizia"><span class="ti">🧹</span><b>Pulizia dati</b><span>Cancella i risultati delle gare e le presenze.</span></button>
+        ${admin ? '<button class="ttile" id="tileDocenti"><span class="ti">🔑</span><b>Docenti <span class="tbadge-n" id="tReq" hidden></span></b><span>Approva i colleghi che chiedono l\'accesso all\'app.</span></button>' : ''}
       </div>
-      <button class="ghostbtn small" id="tEsci">Esci dal cruscotto</button>
-      <div class="board-note">L'accesso resta valido 6 ore su questo browser, anche per la Vista alunni. Su un computer condiviso premi "Esci".</div>
+      <div class="tuser">${U.esc(DOCENTE.email)} · <button class="linkbtn" id="tEsci">Esci</button></div>
     </div>`;
-  document.getElementById('tBack').addEventListener('click', renderMenu);
-  document.getElementById('tileGara').addEventListener('click', () => renderTeacherGara());
-  document.getElementById('tEsci').addEventListener('click', esciDocente);
-  document.getElementById('tilePulizia').addEventListener('click', renderTeacherPulizia);
-  document.getElementById('tileArchivio').addEventListener('click', renderTeacherArchivio);
-  document.getElementById('tileArgomenti').addEventListener('click', renderTeacherArgomenti);
-  document.getElementById('tileCalc').addEventListener('click', renderTeacherCalc);
+  const q = id => document.getElementById(id);
+  q('tBack').addEventListener('click', renderMenu);
+  q('tClasse').addEventListener('change', e => { scegliClasseDocente(e.target.value); renderTeacherPanel(); });
+  q('tNuova').addEventListener('click', () => renderNuovaClasse());
+  q('tileClasse').addEventListener('click', renderTeacherClasse);
+  q('tileGara').addEventListener('click', () => renderTeacherGara());
+  q('tEsci').addEventListener('click', esciDocente);
+  q('tilePulizia').addEventListener('click', renderTeacherPulizia);
+  q('tileArchivio').addEventListener('click', renderTeacherArchivio);
+  q('tileArgomenti').addEventListener('click', renderTeacherArgomenti);
+  q('tileCalc').addEventListener('click', renderTeacherCalc);
+  if(admin){
+    q('tileDocenti').addEventListener('click', renderTeacherDocenti);
+    db.collection('docenti').where('stato', '==', 'richiesta').get().then(s => {
+      const b = document.getElementById('tReq'); if(b && s.size){ b.hidden = false; b.textContent = s.size; }
+    }).catch(() => {});
+  }
+}
+
+// ---------- classi ----------
+async function nuovoCodice(cid){
+  for(let t = 0; t < 12; t++){
+    let c = '';
+    for(let i = 0; i < 6; i++) c += ALFABETO_CODICE[Math.floor(Math.random() * ALFABETO_CODICE.length)];
+    const ref = db.collection('codici').doc(c);
+    try{
+      const ex = await ref.get();
+      if(ex.exists) continue;
+    }catch(e){ /* letto solo per evitare doppioni */ }
+    try{ await ref.set({ classe: cid, docente: DOCENTE.email, ts: Date.now() }); return c; }
+    catch(e){ console.warn('codice occupato', c, e); }
+  }
+  throw new Error('Impossibile generare un codice');
+}
+function renderNuovaClasse(){
+  stopAll();
+  state = null; updateScore(); renderHud('none'); setModeLabel('docente · nuova classe');
+  const prima = !CLASSI_DOC.length;
+  panel.innerHTML = `
+    <div class="center-screen has-back">
+      <button class="backlink" id="ncBack" aria-label="Indietro">← ${prima ? 'Indietro' : 'Cruscotto'}</button>
+      <h2>${prima ? 'Crea la tua prima classe' : 'Nuova classe'}</h2>
+      <div class="tsec">
+        <label class="levelrow">Nome della classe
+          <input class="nameinput" id="ncNome" maxlength="30" placeholder="es. 2E" autocomplete="off"></label>
+        <label class="levelrow">Elenco degli alunni
+          <textarea class="ta" id="ncAlunni" rows="10" placeholder="Un alunno per riga: Cognome Nome&#10;(puoi incollarlo dal registro)"></textarea></label>
+        <div class="board-note">L'elenco si può modificare in ogni momento. Dopo la creazione ricevi il codice d'ingresso da dare agli alunni.</div>
+        <button class="startbtn" id="ncCrea">Crea la classe</button>
+        <div class="board-note" id="ncNote"></div>
+      </div>
+      ${prima ? `<div class="tuser">${U.esc(DOCENTE.email)} · <button class="linkbtn" id="ncEsci">Esci</button></div>` : ''}
+    </div>`;
+  const q = id => document.getElementById(id);
+  q('ncBack').addEventListener('click', prima ? renderMenu : renderTeacherPanel);
+  if(q('ncEsci')) q('ncEsci').addEventListener('click', esciDocente);
+  q('ncCrea').addEventListener('click', async () => {
+    const nome = normaNome(q('ncNome').value).slice(0, 30), alunni = leggiElenco(q('ncAlunni').value);
+    const note = q('ncNote');
+    if(!nome){ note.className = 'board-note err'; note.textContent = 'Scrivi il nome della classe.'; return; }
+    if(CLASSI_DOC.some(c => String(c.nome).toLowerCase() === nome.toLowerCase())){ note.className = 'board-note err'; note.textContent = 'Hai già una classe con questo nome.'; return; }
+    q('ncCrea').disabled = true; note.className = 'board-note'; note.textContent = 'Creo la classe…';
+    try{
+      const ref = db.collection('classi').doc();
+      const dati = { nome, proprietario: DOCENTE.email, docenti: [DOCENTE.email], alunni, aperta: true, codice: '', creata: Date.now(), impostazioni: {} };
+      await ref.set(dati);
+      const codice = await nuovoCodice(ref.id);
+      await ref.update({ codice });
+      CLASSI_DOC.push(Object.assign({ id: ref.id }, dati, { codice }));
+      CLASSI_DOC.sort((a, b) => String(a.nome).localeCompare(String(b.nome), 'it', { numeric: true }));
+      scegliClasseDocente(ref.id);
+      renderTeacherClasse();
+    }catch(e){ console.error(e); q('ncCrea').disabled = false; note.className = 'board-note err'; note.textContent = 'Creazione non riuscita: controlla connessione e regole Firestore.'; }
+  });
+  q('ncNome').focus();
+}
+async function renderTeacherClasse(){
+  stopAll();
+  state = null; updateScore(); renderHud('none');
+  const cl = CLASSI_DOC.find(c => c.id === CLASSE);
+  if(!cl){ renderTeacherPanel(); return; }
+  setModeLabel('docente · classe ' + cl.nome);
+  const proprietario = cl.proprietario === DOCENTE.email;
+  panel.innerHTML = `
+    <div class="center-screen has-back">
+      <button class="backlink" id="clBack" aria-label="Torna al cruscotto">← Cruscotto</button>
+      <h2>Classe ${U.esc(cl.nome)}</h2>
+      <div class="tsec">
+        <div class="tsec-title">Codice d'ingresso</div>
+        <div class="codice-big" id="clCodice">${U.esc(cl.codice || '—')}</div>
+        <div class="board-note">Gli alunni aprono Palestra Matematica, scrivono questo codice e toccano il loro nome. Il Chromebook se lo ricorda.</div>
+        <label class="calc-swrow"><span>Ingressi aperti</span><input type="checkbox" id="clAperta" ${cl.aperta !== false ? 'checked' : ''}><i class="sw"></i></label>
+        <div class="board-note">Con gli ingressi chiusi nessun nuovo dispositivo può entrare; chi è già entrato continua a lavorare.</div>
+        <div class="trow"><button class="ghostbtn small" id="clRigenera">Rigenera il codice</button></div>
+        <div class="board-note" id="clCodNote"></div>
+      </div>
+      <div class="tsec">
+        <div class="tsec-title">Alunni</div>
+        <div id="clEntrati" class="cl-entrati"><div class="board-note">Carico chi è entrato…</div></div>
+        <label class="levelrow">Elenco (un alunno per riga: Cognome Nome)
+          <textarea class="ta" id="clAlunni" rows="10">${U.esc((cl.alunni || []).join('\n'))}</textarea></label>
+        <div class="trow"><button class="startbtn" id="clSalva">Salva l'elenco</button></div>
+        <div class="board-note" id="clNote"></div>
+      </div>
+      <div class="tsec">
+        <div class="tsec-title">Docenti della classe</div>
+        <div class="cl-doc">${(cl.docenti || []).map(e => `<div class="cl-docrow"><span>${U.esc(e)}${e === cl.proprietario ? ' <span class="dim">(ha creato la classe)</span>' : ''}</span>${proprietario && e !== cl.proprietario ? `<button class="linkbtn" data-tolgo="${U.esc(e)}">Togli</button>` : ''}</div>`).join('')}</div>
+        ${proprietario ? `<div class="trow"><input class="nameinput small" id="clDocEmail" placeholder="email del collega" autocomplete="off"><button class="ghostbtn small" id="clDocAdd">Aggiungi</button></div>
+        <div class="board-note">Per esempio l'insegnante di sostegno o di potenziamento. Il collega deve avere già accesso all'app.</div>` : ''}
+        <div class="board-note" id="clDocNote"></div>
+      </div>
+      ${proprietario ? `<div class="tsec"><div class="trow"><button class="ghostbtn danger" id="clElimina">Elimina la classe</button></div>
+        <div class="board-note">Cancella la classe con tutti i suoi dati: presenze, report, gare e archivio.</div></div>` : ''}
+    </div>`;
+  const q = id => document.getElementById(id);
+  const nota = (id, t, err) => { const n = q(id); if(n){ n.className = 'board-note' + (err ? ' err' : ''); n.textContent = t; } };
+  q('clBack').addEventListener('click', renderTeacherPanel);
+  q('clAperta').addEventListener('change', async e => {
+    try{ await classeRef().update({ aperta: e.target.checked }); aggiornaClasseLocale({ aperta: e.target.checked });
+      nota('clCodNote', e.target.checked ? 'Ingressi aperti.' : 'Ingressi chiusi.'); }
+    catch(err){ console.error(err); e.target.checked = !e.target.checked; nota('clCodNote', 'Modifica non riuscita.', true); }
+  });
+  q('clRigenera').addEventListener('click', async () => {
+    if(!window.confirm('Rigenerare il codice? Il vecchio smette di funzionare e TUTTI gli alunni dovranno inserire il nuovo codice.')) return;
+    try{
+      const vecchio = cl.codice, codice = await nuovoCodice(CLASSE);
+      await classeRef().update({ codice });
+      aggiornaClasseLocale({ codice });
+      if(vecchio) db.collection('codici').doc(vecchio).delete().catch(() => {});
+      q('clCodice').textContent = codice;
+      nota('clCodNote', 'Nuovo codice creato.');
+    }catch(e){ console.error(e); nota('clCodNote', 'Non riesco a creare il nuovo codice.', true); }
+  });
+  q('clSalva').addEventListener('click', async () => {
+    const alunni = leggiElenco(q('clAlunni').value);
+    try{ await classeRef().update({ alunni }); aggiornaClasseLocale({ alunni }); q('clAlunni').value = alunni.join('\n');
+      nota('clNote', `Elenco salvato: ${alunni.length} alunni.`); mostraEntrati(); }
+    catch(e){ console.error(e); nota('clNote', 'Salvataggio non riuscito.', true); }
+  });
+  panel.querySelectorAll('[data-tolgo]').forEach(b => b.addEventListener('click', async () => {
+    const email = b.getAttribute('data-tolgo');
+    if(!window.confirm(`Togliere ${email} dai docenti della classe?`)) return;
+    try{ const docenti = (cl.docenti || []).filter(x => x !== email); await classeRef().update({ docenti }); aggiornaClasseLocale({ docenti }); renderTeacherClasse(); }
+    catch(e){ console.error(e); nota('clDocNote', 'Modifica non riuscita.', true); }
+  }));
+  if(q('clDocAdd')) q('clDocAdd').addEventListener('click', async () => {
+    const email = String(q('clDocEmail').value || '').trim().toLowerCase();
+    if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){ nota('clDocNote', 'Scrivi un indirizzo email valido.', true); return; }
+    if((cl.docenti || []).indexOf(email) > -1){ nota('clDocNote', 'È già tra i docenti della classe.', true); return; }
+    try{ const docenti = (cl.docenti || []).concat([email]); await classeRef().update({ docenti }); aggiornaClasseLocale({ docenti }); renderTeacherClasse(); }
+    catch(e){ console.error(e); nota('clDocNote', 'Modifica non riuscita.', true); }
+  });
+  if(q('clElimina')) q('clElimina').addEventListener('click', async () => {
+    const conferma = window.prompt(`Per eliminare la classe ${cl.nome} con tutti i suoi dati scrivi il suo nome:`);
+    if(conferma == null) return;
+    if(normaNome(conferma).toLowerCase() !== String(cl.nome).toLowerCase()){ window.alert('Nome non corrispondente: classe non eliminata.'); return; }
+    try{
+      for(const s of SOTTOCOLLEZIONI) await deleteAll(C(s));
+      if(cl.codice) await db.collection('codici').doc(cl.codice).delete().catch(() => {});
+      await classeRef().delete();
+      CLASSI_DOC = CLASSI_DOC.filter(c => c.id !== cl.id);
+      scegliClasseDocente(CLASSI_DOC.length ? CLASSI_DOC[0].id : null);
+      renderTeacherPanel();
+    }catch(e){ console.error(e); window.alert('Eliminazione non riuscita: controlla connessione e regole Firestore.'); }
+  });
+  mostraEntrati();
+}
+// Chi è entrato (un dispositivo = un documento in "membri"): utile per accorgersi di doppioni
+async function mostraEntrati(){
+  const host = document.getElementById('clEntrati');
+  const cl = CLASSI_DOC.find(c => c.id === CLASSE);
+  if(!host || !cl) return;
+  let membri = [];
+  try{ const s = await C('membri').get(); membri = s.docs.map(d => Object.assign({ id: d.id }, d.data())); }
+  catch(e){ console.error(e); host.innerHTML = '<div class="board-note err">Non riesco a leggere chi è entrato.</div>'; return; }
+  const validi = membri.filter(m => m.nome && m.codice === cl.codice);
+  const per = {}; validi.forEach(m => { (per[m.nome] = per[m.nome] || []).push(m); });
+  const nomi = cl.alunni || [];
+  const entrati = nomi.filter(n => per[n]).length;
+  host.innerHTML = `<div class="board-note">Entrati con il codice attuale: <b>${entrati}</b> su ${nomi.length}.</div>
+    <div class="cl-grid">${nomi.map(n => {
+      const k = (per[n] || []).length;
+      return `<div class="cl-al${k ? ' in' : ''}${k > 1 ? ' doppio' : ''}"><span>${U.esc(n)}</span>${k > 1 ? `<b title="Entrato da ${k} dispositivi">×${k}</b>` : ''}${k ? `<button class="linkbtn" data-esci="${U.esc(n)}" title="Fai uscire: dovrà rientrare con il codice">esci</button>` : ''}</div>`;
+    }).join('')}</div>
+    ${nomi.some(n => (per[n] || []).length > 1) ? '<div class="board-note err">×2 = lo stesso nome è entrato da più dispositivi: controlla che nessuno usi il nome di un compagno.</div>' : ''}`;
+  host.querySelectorAll('[data-esci]').forEach(b => b.addEventListener('click', async () => {
+    const nome = b.getAttribute('data-esci');
+    if(!window.confirm(`Far uscire ${nome}? Dovrà inserire di nuovo codice e nome.`)) return;
+    try{ for(const m of per[nome] || []) await C('membri').doc(m.id).delete(); mostraEntrati(); }
+    catch(e){ console.error(e); window.alert('Operazione non riuscita.'); }
+  }));
+}
+
+// ---------- docenti (solo amministratore) ----------
+async function renderTeacherDocenti(){
+  stopAll();
+  state = null; updateScore(); renderHud('none'); setModeLabel('docente · docenti');
+  panel.innerHTML = `
+    <div class="center-screen has-back">
+      <button class="backlink" id="dcBack" aria-label="Torna al cruscotto">← Cruscotto</button>
+      <h2>Docenti</h2>
+      <div class="board-note">Chi accede al cruscotto con Google invia una richiesta: qui la approvi o la rifiuti. Puoi anche aggiungere direttamente l'email di un collega.</div>
+      <div class="trow"><input class="nameinput small" id="dcEmail" placeholder="email del collega" autocomplete="off"><button class="ghostbtn small" id="dcAdd">Aggiungi</button></div>
+      <div class="board-note" id="dcNote"></div>
+      <div id="dcBody" class="tgara-body"><div class="board-note">Carico…</div></div>
+    </div>`;
+  const q = id => document.getElementById(id);
+  const nota = (t, err) => { const n = q('dcNote'); if(n){ n.className = 'board-note' + (err ? ' err' : ''); n.textContent = t; } };
+  q('dcBack').addEventListener('click', renderTeacherPanel);
+  q('dcAdd').addEventListener('click', async () => {
+    const email = String(q('dcEmail').value || '').trim().toLowerCase();
+    if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){ nota('Scrivi un indirizzo email valido.', true); return; }
+    try{ await db.collection('docenti').doc(email).set({ email, nome: email, ruolo: 'docente', stato: 'attivo', ts: Date.now() }); renderTeacherDocenti(); }
+    catch(e){ console.error(e); nota('Operazione non riuscita.', true); }
+  });
+  let lista = [];
+  try{ const s = await db.collection('docenti').get(); lista = s.docs.map(d => d.data()); }
+  catch(e){ console.error(e); q('dcBody').innerHTML = '<div class="board-note err">Non riesco a leggere l\'elenco dei docenti.</div>'; return; }
+  const gruppi = [['richiesta', 'Richieste in attesa'], ['attivo', 'Docenti attivi'], ['rifiutato', 'Richieste rifiutate']];
+  q('dcBody').innerHTML = gruppi.map(([st, tit]) => {
+    const g = lista.filter(d => (d.stato || 'richiesta') === st).sort((a, b) => String(a.email).localeCompare(String(b.email)));
+    if(!g.length && st !== 'richiesta') return '';
+    return `<div class="tsec"><div class="tsec-title">${tit} (${g.length})</div>${g.length ? g.map(d => `
+      <div class="cl-docrow"><span>${U.esc(d.nome && d.nome !== d.email ? d.nome + ' · ' : '')}${U.esc(d.email)}${d.ruolo === 'admin' ? ' <span class="dim">(amministratore)</span>' : ''}</span>
+      <span>${st !== 'attivo' ? `<button class="ghostbtn small" data-e="${U.esc(d.email)}" data-s="attivo">Approva</button>` : ''}
+      ${st === 'richiesta' ? `<button class="linkbtn" data-e="${U.esc(d.email)}" data-s="rifiutato">Rifiuta</button>` : ''}
+      ${st === 'attivo' && d.ruolo !== 'admin' ? `<button class="linkbtn" data-e="${U.esc(d.email)}" data-s="rifiutato">Revoca</button>` : ''}</span></div>`).join('')
+      : '<div class="board-note">Nessuna richiesta.</div>'}</div>`;
+  }).join('');
+  q('dcBody').querySelectorAll('[data-e]').forEach(b => b.addEventListener('click', async () => {
+    try{ await db.collection('docenti').doc(b.getAttribute('data-e')).update({ stato: b.getAttribute('data-s') }); renderTeacherDocenti(); }
+    catch(e){ console.error(e); nota('Operazione non riuscita.', true); }
+  }));
 }
 
 function renderTeacherCalc(){
@@ -1889,7 +2369,7 @@ function renderTeacherCalc(){
   panel.innerHTML = `
     <div class="center-screen has-back">
       <button class="backlink" id="cBack" aria-label="Torna al cruscotto">← Cruscotto</button>
-      <h2>Calcolatrice</h2>
+      <h2>Calcolatrice</h2>${tagClasse()}
       <div class="board-note">Se attiva, durante l'attività compare in basso a destra il pulsante 🧮 che apre una calcolatrice (quattro operazioni, parentesi, quadrato e radice quadrata). La scelta vale subito per tutti gli alunni.</div>
       <div class="calc-sw">${voci.map(([k, l]) => `
         <label class="calc-swrow"><span>${l}</span><input type="checkbox" class="calc-in" value="${k}" ${CALC[k] ? 'checked' : ''}><i class="sw"></i></label>`).join('')}
@@ -1901,11 +2381,7 @@ function renderTeacherCalc(){
     const note = document.getElementById('cNote');
     const nuovo = Object.assign({}, CALC, { [c.value]: c.checked });
     try{
-      const v = VISIBILI;
-      await db.collection('config').doc('argomenti').set({
-        nascosti: v.allenamento.nascosti || [], sezioniNascoste: v.allenamento.sezioniNascoste || {},
-        allenamento: v.allenamento, guidami: v.guidami, calcolatrice: nuovo, aggiornato: Date.now()
-      });
+      await salvaImpostazioni({ calcolatrice: nuovo });
       CALC = nuovo;
       note.className = 'board-note'; note.textContent = `Calcolatrice ${c.checked ? 'attivata' : 'disattivata'} in ${voci.find(x => x[0] === c.value)[1]}.`;
     }catch(e){ console.error(e); c.checked = !c.checked; note.className = 'board-note err'; note.textContent = 'Salvataggio non riuscito: controlla connessione e regole Firestore.'; }
@@ -1948,7 +2424,7 @@ function renderTeacherGara(){
   panel.innerHTML = `
     <div class="center-screen has-back tgara">
       <button class="backlink" id="gBack" aria-label="Torna al cruscotto">← Cruscotto</button>
-      <h2>Gara</h2>
+      <h2>Gara</h2>${tagClasse()}
       <div id="gBody" class="tgara-body"><div class="board-note">Connessione...</div></div>
       <p class="board-note err" id="tErr" style="display:none;"></p>
     </div>`;
@@ -1957,7 +2433,7 @@ function renderTeacherGara(){
   teacherCtx = ctx;
   document.getElementById('gBack').addEventListener('click', renderTeacherPanel);
 
-  ctx.unsubState = db.collection('game').doc('state').onSnapshot(snap => {
+  ctx.unsubState = GARA().onSnapshot(snap => {
     const d = snap.exists ? snap.data() : null;
     ctx.state = d; ctx.ready = true; ctx.err = null;
     const sid = d && d.sessionId ? d.sessionId : null;
@@ -1965,11 +2441,11 @@ function renderTeacherGara(){
       ctx.sessionId = sid; ctx.players = []; ctx.scores = [];
       ['unsubPlayers', 'unsubScores'].forEach(k => { if(ctx[k]){ try{ ctx[k](); }catch(e){} ctx[k] = null; } });
       if(sid){
-        ctx.unsubPlayers = db.collection('players').where('sessionId', '==', sid).onSnapshot(s => {
+        ctx.unsubPlayers = C('players').where('sessionId', '==', sid).onSnapshot(s => {
           ctx.players = s.docs.map(x => x.data());
           garaDisegna();
         }, e => console.error(e));
-        ctx.unsubScores = db.collection('scores').where('sessionId', '==', sid).onSnapshot(s => {
+        ctx.unsubScores = C('scores').where('sessionId', '==', sid).onSnapshot(s => {
           ctx.scores = s.docs.map(x => x.data());
           garaStato();
         }, e => console.error(e));
@@ -2074,7 +2550,7 @@ function garaImpostazione(body, conclusa){
         manche: 0, startAt: null, duration: Number(q('sDurata').value) * 1000,
         mode: modoSel, teams, sezioni: sezGara, updatedAt: Date.now()
       };
-      await db.collection('game').doc('state').set(nuova);
+      await GARA().set(nuova);
       archiviaGara(nuova, []).catch(e => console.warn('archivio non aggiornato', e));
       t.setup = false;
       garaErr('');
@@ -2120,7 +2596,7 @@ function garaGestione(body){
       if(fuori.length && !window.confirm(`${fuori.length} ${fuori.length === 1 ? 'alunno non è' : 'alunni non sono'} in nessuna squadra: giocheranno, ma non conteranno per le squadre. Avviare comunque?`)) return;
     }
     try{
-      await db.collection('game').doc('state').set({
+      await GARA().set({
         manche: prossima, startAt: Date.now() + CONTO_MS, updatedAt: Date.now()
       }, { merge: true });
       garaErr('');
@@ -2212,7 +2688,7 @@ function garaPartecipanti(){
     </div>`;
 
   const salva = async teams => {
-    try{ await db.collection('game').doc('state').set({ teams, updatedAt: Date.now() }, { merge: true }); garaErr(''); }
+    try{ await GARA().set({ teams, updatedAt: Date.now() }, { merge: true }); garaErr(''); }
     catch(e){ console.error(e); garaErr('Salvataggio delle squadre non riuscito: controlla connessione e regole Firestore.'); }
   };
   const copia = () => d.teams.map(x => Object.assign({}, x, { membri: (x.membri || []).slice() }));
@@ -2252,7 +2728,7 @@ function renderTeacherArgomenti(){
   panel.innerHTML = `
     <div class="center-screen has-back">
       <button class="backlink" id="vaBack" aria-label="Torna al cruscotto">← Cruscotto</button>
-      <h2>Argomenti</h2>
+      <h2>Argomenti</h2>${tagClasse()}
       <div class="board-note">Scegli argomenti e sezioni che gli alunni troveranno in Allenamento e in Guidami. Gli alunni li vedono ma non possono cambiarli. La gara si imposta dalla piastrella Gara.</div>
       <div class="seg" role="tablist">
         <label><input type="radio" name="vaModo" value="allenamento" checked><span>Allenamento</span></label>
@@ -2308,10 +2784,7 @@ function renderTeacherArgomenti(){
     const nessuno = m => (m === 'guidami' ? ORDER.filter(id => TOPICS[id].guida) : ORDER).every(id => bozza[m].nascosti.indexOf(id) > -1);
     if(nessuno('allenamento') || nessuno('guidami')){ note.className = 'board-note err'; note.textContent = 'Lascia visibile almeno un argomento sia in Allenamento sia in Guidami.'; return; }
     try{
-      await db.collection('config').doc('argomenti').set({
-        nascosti: bozza.allenamento.nascosti, sezioniNascoste: bozza.allenamento.sezioniNascoste,   // compatibilità
-        allenamento: bozza.allenamento, guidami: bozza.guidami, calcolatrice: CALC, aggiornato: Date.now()
-      });
+      await salvaImpostazioni({ allenamento: bozza.allenamento, guidami: bozza.guidami });
       VISIBILI = { allenamento: copia(bozza.allenamento), guidami: copia(bozza.guidami) };
       note.className = 'board-note'; note.textContent = 'Salvato: gli alunni vedono subito la nuova scelta.';
     }catch(e){ console.error(e); note.className = 'board-note err'; note.textContent = 'Salvataggio non riuscito: controlla connessione e regole Firestore.'; }
@@ -2324,7 +2797,7 @@ function renderTeacherArgomenti(){
 async function archiviaGara(d, scores){
   if(!db || !d || !d.sessionId) return;
   if(scores === null){
-    const snap = await db.collection('scores').where('sessionId', '==', d.sessionId).get();
+    const snap = await C('scores').where('sessionId', '==', d.sessionId).get();
     scores = snap.docs.map(x => x.data());
   }
   const n = nMancheDi(d);
@@ -2336,7 +2809,7 @@ async function archiviaGara(d, scores){
     classificaSq = classificaSquadre(d, valori).map(c => ({ nome: c.t.nome, colore: c.t.colore, media: c.media, giocato: c.n, membri: (c.t.membri || []).slice() }));
   }
   const mancheGiocate = (scores || []).reduce((m, e) => Math.max(m, Number(e.manche) || 0), 0);
-  await db.collection('gare').doc(String(d.sessionId)).set({
+  await C('gare').doc(String(d.sessionId)).set({
     sessionId: d.sessionId, topic: d.topic || '', topicTitle: topicTitle(d.topic), nManche: n, duration: d.duration || DURATA_MS,
     mode: squadre ? 'squadre' : 'singola', teams: squadre ? d.teams : [], mancheGiocate,
     classifica: finale.map(e => ({ name: e.name, m: e.m, total: e.total, squadra: squadre ? (d.teams[squadraDi(d, e.key)] || {}).nome || '' : '' })),
@@ -2353,12 +2826,12 @@ async function renderTeacherArchivio(){
   panel.innerHTML = `
     <div class="center-screen has-back">
       <button class="backlink" id="aBack" aria-label="Torna al cruscotto">← Cruscotto</button>
-      <h2>Archivio gare</h2>
+      <h2>Archivio gare</h2>${tagClasse()}
       <div id="aBody" class="tgara-body"><div class="board-note">Carico l'archivio…</div></div>
     </div>`;
   document.getElementById('aBack').addEventListener('click', renderTeacherPanel);
   let gare = [];
-  try{ const snap = await db.collection('gare').get(); gare = snap.docs.map(x => x.data()); }
+  try{ const snap = await C('gare').get(); gare = snap.docs.map(x => x.data()); }
   catch(e){ console.error(e); document.getElementById('aBody').innerHTML = '<div class="board-note err">Non riesco a leggere l\'archivio: controlla connessione e regole Firestore.</div>'; return; }
   const body = document.getElementById('aBody');
   if(!body) return;
@@ -2413,7 +2886,7 @@ function renderSchedaGara(g){
   });
   document.getElementById('sDel').addEventListener('click', async () => {
     if(!window.confirm('Eliminare questa gara dall\'archivio? I punteggi già salvati nel database non vengono toccati.')) return;
-    try{ await db.collection('gare').doc(String(g.sessionId)).delete(); renderTeacherArchivio(); }
+    try{ await C('gare').doc(String(g.sessionId)).delete(); renderTeacherArchivio(); }
     catch(e){ console.error(e); const n2 = document.getElementById('sNote'); if(n2){ n2.className = 'board-note err'; n2.textContent = 'Eliminazione non riuscita: controlla connessione e regole Firestore.'; } }
   });
 }
@@ -2425,7 +2898,7 @@ function renderTeacherPulizia(){
   panel.innerHTML = `
     <div class="center-screen has-back">
       <button class="backlink" id="pBack" aria-label="Torna al cruscotto">← Cruscotto</button>
-      <h2>Pulizia dati</h2>
+      <h2>Pulizia dati</h2>${tagClasse()}
       <div class="tsec">
         <div class="trow"><button class="ghostbtn" id="tDelGara">Cancella i risultati della gara attuale</button></div>
         <div class="trow"><button class="ghostbtn" id="tDelAll">Cancella tutti i risultati e le presenze</button></div>
@@ -2447,21 +2920,21 @@ function renderTeacherPulizia(){
   }
   document.getElementById('tDelGara').addEventListener('click', async () => {
     let sid = null;
-    try{ const s = await db.collection('game').doc('state').get(); sid = s.exists ? s.data().sessionId : null; }catch(e){ console.error(e); }
+    try{ const s = await GARA().get(); sid = s.exists ? s.data().sessionId : null; }catch(e){ console.error(e); }
     if(!sid){ delNote('Nessuna gara attuale.'); return; }
     // la scheda in archivio resta: la si aggiorna prima di cancellare
-    try{ const st = await db.collection('game').doc('state').get(); if(st.exists) await archiviaGara(st.data(), null); }catch(e){ console.warn(e); }
+    try{ const st = await GARA().get(); if(st.exists) await archiviaGara(st.data(), null); }catch(e){ console.warn(e); }
     cancella('Cancellare i punteggi, i dati live e gli iscritti della gara attuale?', [
-      db.collection('scores').where('sessionId', '==', sid),
-      db.collection('live').where('sessionId', '==', sid),
-      db.collection('players').where('sessionId', '==', sid)]);
+      C('scores').where('sessionId', '==', sid),
+      C('live').where('sessionId', '==', sid),
+      C('players').where('sessionId', '==', sid)]);
   });
   document.getElementById('tDelArch').addEventListener('click', () => {
-    cancella('Cancellare TUTTE le schede dell\'archivio delle gare?', [db.collection('gare')]);
+    cancella('Cancellare TUTTE le schede dell\'archivio delle gare?', [C('gare')]);
   });
   document.getElementById('tDelAll').addEventListener('click', () => {
     cancella('Cancellare TUTTI i punteggi di tutte le gare e tutte le presenze degli alunni?', [
-      db.collection('scores'), db.collection('live'), db.collection('presence'), db.collection('players')]);
+      C('scores'), C('live'), C('presence'), C('players')]);
   });
 }
 
@@ -2487,24 +2960,16 @@ function avvia(){
   modeLabelEl = document.getElementById('modeLabel');
   hudRow = document.getElementById('hudRow');
   initFirebase();
-  // argomenti e sezioni visibili agli alunni (scelti dal docente nel cruscotto)
-  if(db){
-    db.collection('config').doc('argomenti').onSnapshot(snap => {
-      impostaVisibili(snap.exists ? snap.data() : null);
-      // se l'alunno è su un menu, lo si ridisegna conservando il nome già scritto
-      if(!state && !garaCtx && !teacherCtx && !guidaCtx && document.querySelector('#panel .menu')){
-        const inp = document.getElementById('nomeInput'), v = inp ? inp.value : null;
-        drawMenu();
-        const inp2 = document.getElementById('nomeInput'); if(inp2 && v !== null) inp2.value = v;
-      }
-    }, e => console.warn('configurazione argomenti non letta', e));
-  }
   // link "Cruscotto docente" nel footer
   const fd = document.getElementById('footDocente');
   if(fd) fd.addEventListener('click', e => { e.preventDefault(); renderTeacherGate(); });
   // index.html#cruscotto (link "← Cruscotto" della Vista alunni): si apre direttamente il cruscotto
-  if(location.hash === '#cruscotto'){ try{ history.replaceState(null, '', location.pathname + location.search); }catch(e){} renderTeacherGate(); }
-  else renderMenu();
+  if(location.hash === '#cruscotto'){ try{ history.replaceState(null, '', location.pathname + location.search); }catch(e){} renderTeacherGate(); return; }
+  if(!modoClassi()){ renderMenu(); return; }
+  // l'alunno già entrato su questo computer ritrova la sua classe; altrimenti si chiede il codice
+  panel.innerHTML = '<div class="center-screen"><p class="board-note">Connessione…</p></div>';
+  riprendiAlunno().then(ok => { if(!teacherCtx && !DOCENTE && !state && !garaCtx && !guidaCtx) (ok ? renderMenu : renderIngresso)(); })
+    .catch(e => { console.error(e); renderIngresso(); });
 }
 
 window.Palestra = { registraArgomento, utils: U, avvia, _topics: TOPICS, _visibili: impostaVisibili, _calc: calcValuta };

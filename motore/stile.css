@@ -528,7 +528,7 @@ a.backlink{text-decoration:none;display:inline-flex;align-items:center;}
 .calc-k.zero{grid-column:span 3;}
 .calc-k.eq{grid-column:span 2;background:var(--blue);color:#1d2a2a;border-color:var(--blue);}
 .calc-sw{display:flex;flex-direction:column;gap:8px;width:100%;max-width:360px;margin:6px auto;}
-.calc-swrow{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border:1px solid var(--line);border-radius:12px;background:var(--board-dark);color:var(--chalk);font-weight:700;cursor:pointer;position:relative;}
+.calc-swrow{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:12px 16px;border:1px solid var(--line);border-radius:12px;background:var(--board-dark);color:var(--chalk);font-weight:700;cursor:pointer;position:relative;}
 .calc-swrow input{position:absolute;opacity:0;pointer-events:none;}
 .calc-swrow .sw{width:44px;height:24px;border-radius:999px;background:rgba(242,240,230,.15);position:relative;transition:background .15s;}
 .calc-swrow .sw::after{content:"";position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:var(--chalk);transition:left .15s;}
@@ -539,3 +539,41 @@ a.backlink{text-decoration:none;display:inline-flex;align-items:center;}
 @media print{.calc-fab,.calc-box{display:none!important;}}
 .tsec.gconclusa{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;border-color:var(--green);}
 .levelrow[hidden]{display:none;}
+
+/* ---------- Accesso: classi, codice, docenti ---------- */
+.linkbtn{background:none;border:none;padding:0 2px;color:var(--blue);font:inherit;font-weight:700;cursor:pointer;text-decoration:underline;text-underline-offset:2px;}
+.linkbtn:hover{color:var(--yellow);}
+.codice-in{font-size:24px;letter-spacing:.18em;text-transform:uppercase;width:230px;}
+.chi-sono{font-size:14px;color:var(--chalk-dim);}
+.chi-sono b{color:var(--chalk);}
+.nomi-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px;width:100%;max-height:52vh;overflow:auto;padding:2px;}
+.nomebtn{padding:12px 14px;border-radius:10px;border:1px solid var(--line);background:var(--board-dark);color:var(--chalk);font:700 14px var(--font-ui);cursor:pointer;text-align:left;}
+.nomebtn:hover{border-color:var(--blue);}
+.nomebtn:disabled{opacity:.5;}
+.gbtn{display:inline-flex;align-items:center;gap:10px;}
+.gbtn .g{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:#fff;color:#4285f4;font:800 14px var(--font-ui);}
+.tclasse{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:center;font-size:14px;color:var(--chalk-dim);font-weight:700;}
+.tclasse-tag{margin-top:-6px;font-size:13px;font-weight:700;color:var(--chalk-dim);}
+.tcode{color:var(--yellow);letter-spacing:.08em;}
+.tbadge-n{display:inline-block;min-width:20px;padding:1px 6px;border-radius:999px;background:var(--red);color:#fff;font-size:12px;text-align:center;vertical-align:middle;}
+.tbadge-n[hidden]{display:none;}
+.tuser{font-size:13px;color:var(--chalk-dim);}
+.ta{width:100%;max-width:460px;min-height:160px;padding:10px 12px;border-radius:9px;border:2px solid var(--line);background:rgba(242,240,230,0.06);color:var(--chalk);font:500 14px/1.5 var(--font-ui);resize:vertical;outline:none;}
+.ta:focus{border-color:var(--blue);}
+.codice-big{font:800 40px var(--font-ui);letter-spacing:.22em;color:var(--yellow);padding:4px 0 0 .22em;}
+.cl-entrati{width:100%;display:flex;flex-direction:column;align-items:center;gap:8px;}
+.cl-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:6px;width:100%;}
+.cl-al{display:flex;align-items:center;gap:6px;padding:7px 10px;border-radius:8px;border:1px solid var(--line);font-size:13px;color:var(--chalk-dim);}
+.cl-al span{flex:1;}
+.cl-al.in{color:var(--chalk);border-color:var(--green);}
+.cl-al.doppio{border-color:var(--red);}
+.cl-al b{color:var(--red);}
+.cl-al .linkbtn{font-size:12px;}
+.cl-doc{width:100%;display:flex;flex-direction:column;gap:6px;}
+.cl-docrow{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 12px;border-radius:9px;border:1px solid var(--line);font-size:14px;width:100%;}
+.nameinput.small{width:240px;font-size:14px;padding:8px 12px;}
+.ghostbtn.danger{color:var(--red);border-color:var(--red);}
+.ghostbtn.danger:hover{background:rgba(224,98,98,.12);}
+.tsec .levelrow{width:100%;}
+.mclasse{font:700 14px var(--font-ui);color:var(--chalk-dim);margin-top:2px;}
+select.mclasse{padding:5px 10px;}

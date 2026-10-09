@@ -13,7 +13,7 @@
 window.CONFIG = {
   firebase: {
     apiKey: "AIzaSyBiKFld46ppwWg5m_BrQqfFe_2eJmdBf6M",
-    authDomain: "palestra-di-matematica.firebaseapp.com.firebaseapp.com",
+    authDomain: "palestra-di-matematica.firebaseapp.com",
     projectId: "palestra-di-matematica",
     storageBucket: "palestra-di-matematica.firebasestorage.app.appspot.com",
     messagingSenderId: "13364442685",

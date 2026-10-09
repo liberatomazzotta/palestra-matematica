@@ -16,7 +16,7 @@ avviata dal docente. Non c'è nessun legame con le classi: gli alunni scrivono s
 
 ```
 index.html            pagina principale (la si apre da qui)
-config.js             configurazione Firebase e codice docente  <-- unico file da modificare
+config.js             configurazione Firebase  <-- unico file da modificare
 firestore.rules       regole di sicurezza del database
 motore/               menu, gara, podio, cruscotto docente
 argomenti/
@@ -34,10 +34,17 @@ argomenti/
 4. **Impostazioni progetto** (ingranaggio) → **Le tue app** → icona web `</>` → registra l'app (senza Hosting).
    Copia i valori di `firebaseConfig`.
 
-### 2. Configurazione
-Apri `config.js` e incolla i valori al posto di `INSERISCI_QUI`. Cambia anche `codiceDocente`.
+### 2. Accesso (Authentication)
+1. **Authentication → Inizia → Metodo di accesso**: attiva **Google** (email di assistenza: la tua) e **Anonimo**.
+   Google serve ai docenti, Anonimo agli alunni (nessun account: entrano con il codice classe).
+2. **Authentication → Impostazioni → Domini autorizzati → Aggiungi dominio**: `TUONOME.github.io`.
+3. In `firestore.rules` la funzione `emailAdmin()` contiene l'email dell'amministratore dell'app
+   (chi approva i colleghi): cambiala se serve, poi pubblica le regole.
 
-### 3. Pubblicazione su GitHub Pages
+### 3. Configurazione
+Apri `config.js` e incolla i valori al posto di `INSERISCI_QUI` (attenzione ad `authDomain`: `NOMEPROGETTO.firebaseapp.com`).
+
+### 4. Pubblicazione su GitHub Pages
 1. Crea un repository (es. `palestra-matematica`) e carica tutti i file di questa cartella.
 2. **Settings → Pages → Source: branch `main`, cartella `/ (root)`** → Salva.
 3. Dopo circa un minuto il link è `https://TUONOME.github.io/palestra-matematica/`: è quello da dare agli alunni.
@@ -47,27 +54,41 @@ Con l'account gratuito il repository deve essere pubblico. Non è un problema: l
 
 Se i Chromebook della scuola bloccano `github.io`, usa **Firebase Hosting** (`web.app`): stessi file.
 
+## Docenti, classi e accesso degli alunni
+
+- **Docenti**: link **Cruscotto docente** → **Accedi con Google**. L'amministratore (email in `firestore.rules`) entra subito;
+  gli altri inviano una richiesta che l'amministratore approva nella piastrella **Docenti** (lì può anche aggiungere direttamente un'email).
+- **Classi**: ogni docente crea le sue classi (nome + elenco alunni incollato dal registro, un nome per riga) e riceve un
+  **codice d'ingresso** di 6 caratteri. Un docente vede solo le sue classi; può aggiungere un collega a una classe (es. sostegno).
+  Gara, argomenti, calcolatrice, report, archivio e pulizia dati valgono **per la classe scelta** in alto nel cruscotto.
+- **Alunni**: aprono il link, scrivono il codice, toccano il loro nome. Il Chromebook se lo ricorda ("Non sei tu?" per cambiare).
+  Nessuna email né account per gli alunni: solo il nome inserito dal docente.
+- **Piastrella Classe**: codice, **Ingressi aperti/chiusi** (chi è già entrato continua), **Rigenera il codice** (chi è entrato deve
+  rientrare con il nuovo), elenco alunni, docenti della classe, elimina classe (con tutti i suoi dati).
+- **Sicurezza**: le regole Firestore permettono di leggere e scrivere i dati di una classe solo ai suoi docenti e agli alunni entrati
+  con il codice attuale; un alunno scrive solo a nome proprio. Le impostazioni e la gara le cambia solo il docente.
+
 ## Uso in classe
 
 **L'alunno non sceglie**: in Guidami e Allenamento vede (senza spunte) gli argomenti e i sottoargomenti decisi dal docente e preme solo "Inizia". Il docente può scegliere **uno o più argomenti**: le domande (o gli esercizi guidati) si alternano tra gli argomenti scelti; report, ripasso mirato e statistiche restano separati per argomento.
 
-1. Alunni: aprono il link, scrivono Cognome e Nome, scelgono **Allenamento** (poi argomento da elenco a discesa e livello) oppure **Gara**.
-2. Docente: link **Cruscotto docente** in fondo alla home → codice → piastrella **Gara** → scegli argomento, numero di manches (1–5), durata (1–5 minuti) e tipo: **tutti contro tutti** o **a squadre** (2–6 squadre) → **Crea la gara**.
-3. Alunni: **Gara** → Cognome e Nome → **Entra in gara**. Compaiono nell'elenco "Alunni in gara" del docente.
+1. Alunni: entrano con il codice classe e il loro nome, scelgono **Guidami**, **Allenamento** oppure **Gara**.
+2. Docente: link **Cruscotto docente** in fondo alla home → Accedi con Google → scegli la classe → piastrella **Gara** → scegli argomento, numero di manches (1–5), durata (1–5 minuti) e tipo: **tutti contro tutti** o **a squadre** (2–6 squadre) → **Crea la gara**.
+3. Alunni: **Gara** → **Entra in gara**. Compaiono nell'elenco "Alunni in gara" del docente.
 4. A squadre: il docente assegna gli alunni con "+ Aggiungi alunno…" su ogni squadra (× per toglierli) oppure **Distribuisci a caso**. Ogni alunno vede la propria squadra. Punteggio di squadra = media dei punteggi dei componenti che hanno giocato.
 5. **Avvia la manche 1**, poi le successive; dopo l'ultima: **Classifica finale (podio)** (anche gli alunni hanno il pulsante).
 
-Il cruscotto ha sei piastrelle: **Gara**, **Vista alunni** (si apre in una nuova scheda), **Argomenti**, **Calcolatrice**, **Archivio gare**, **Pulizia dati**.
+Il cruscotto ha le piastrelle **Classe**, **Gara**, **Vista alunni** (si apre in una nuova scheda), **Argomenti**, **Calcolatrice**, **Archivio gare**, **Pulizia dati** e, per l'amministratore, **Docenti**.
 
-**Calcolatrice** (cruscotto): tre interruttori (Allenamento, Guidami, Gara). Se attiva, durante l'attività compare in basso a destra il pulsante 🧮 con una calcolatrice a video (quattro operazioni, parentesi, x², √, virgola decimale). La scelta è salvata in `config/argomenti` (campo `calcolatrice`) e vale subito per tutti gli alunni.
+**Calcolatrice** (cruscotto): tre interruttori (Allenamento, Guidami, Gara). Se attiva, durante l'attività compare in basso a destra il pulsante 🧮 con una calcolatrice a video (quattro operazioni, parentesi, x², √, virgola decimale). La scelta è salvata nella classe (`classi/{id}`, campo `impostazioni`) e vale subito per tutti gli alunni della classe.
 
 **Sezioni del libro**: ogni argomento segue l'indice del libro in adozione (La divisibilità 4.1–4.12, Le frazioni 5.1–5.11, Il teorema di Pitagora 2.1–2.12). Le sezioni si scelgono dal cruscotto: nella piastrella Argomenti (per Allenamento e Guidami) e nella piastrella Gara. I tipi di esercizio nel report e nel ripasso riportano il numero di sezione (es. "4.5 Scomposizione in fattori primi").
 
-**Argomenti** (cruscotto): il docente spunta argomenti e sezioni **separatamente per Allenamento e per Guidami** (schede in alto; il pulsante "Copia" riporta la scelta da una scheda all'altra). Gli alunni vedono solo quella scelta, in sola lettura. La scelta è salvata in Firestore (`config/argomenti`) e la home degli alunni si aggiorna da sola. Per la gara il docente può scegliere qualunque sezione.
+**Argomenti** (cruscotto): il docente spunta argomenti e sezioni **separatamente per Allenamento e per Guidami** (schede in alto; il pulsante "Copia" riporta la scelta da una scheda all'altra). Gli alunni vedono solo quella scelta, in sola lettura. La scelta è salvata nella classe e la home degli alunni si aggiorna da sola. Per la gara il docente può scegliere qualunque sezione.
 
-**Archivio gare**: ogni gara ha una scheda (collezione `gare`) con data, argomenti, manches giocate, squadre e classifica finale (individuale e a squadre), aggiornata alla fine di ogni manche e prima di creare una nuova gara. Dalla scheda: **Scarica CSV** o **Elimina dall'archivio**. La pulizia dei risultati non tocca l'archivio; c'è un comando apposito per svuotarlo.
+**Archivio gare**: ogni gara ha una scheda (`classi/{id}/gare`) con data, argomenti, manches giocate, squadre e classifica finale (individuale e a squadre), aggiornata alla fine di ogni manche e prima di creare una nuova gara. Dalla scheda: **Scarica CSV** o **Elimina dall'archivio**. La pulizia dei risultati non tocca l'archivio; c'è un comando apposito per svuotarlo.
 
-**Regole Firestore**: questa versione usa la collezione `players` (iscritti alla gara) e manches fino a 10. Ripubblica `firestore.rules` (ora contiene anche le collezioni `gare` e `config`) (Console Firebase → Firestore → Regole → incolla → Pubblica), altrimenti gli alunni non compaiono nell'elenco.
+**Regole Firestore**: dopo ogni aggiornamento di `firestore.rules` ripubblicale (Console Firebase → Firestore → Regole → incolla → Pubblica).
 
 ## Vista alunni (esercitazione e gara)
 
@@ -99,15 +120,14 @@ Sotto ogni domanda c'è un discreto **Salta →**: nessun punto e nessuna penali
 - **Vista alunni → Esercitazione** (allenamento e Guidami): in alto la fascia "Errori più frequenti oggi" (tipi di esercizio sbagliati da più alunni collegati); sulla tessera compare "Punto debole: …" quando un alunno ha almeno 2 errori e almeno il 40% di errori su un tipo di esercizio.
 - **Vista alunni → Esercitazione → Report per alunno**: una riga per alunno (argomenti, minuti, risposte, % corrette, esercizi guidati, punti deboli). Filtri per periodo (oggi, 7 giorni, 30 giorni, tutto) e argomento; clic su un alunno per il dettaglio per tipo di esercizio. "Scarica CSV" si apre con Excel o Fogli Google; "Stampa / PDF" per archiviare.
 - Contano allenamento e Guidami (in Guidami solo il primo tentativo di ogni passo). La gara è esclusa.
-- I dati stanno nello stesso documento `presence` di ogni alunno (campo `giorni`) e viaggiano con le scritture già esistenti: nessuna scrittura in più e nessuna modifica alle rules.
+- I dati stanno nel documento `classi/{id}/presence` di ogni alunno (campo `giorni`) e viaggiano con le scritture già esistenti: nessuna scrittura in più e nessuna modifica alle rules.
 - Attenzione: "Pulizia dati" → cancellare le presenze cancella anche lo storico del report. Scarica prima il CSV.
 
 ## Cancellare i risultati
 
 Nel Cruscotto docente, sezione **Pulizia dati**: «Cancella i risultati di questa gara» (punteggi e dati live della gara corrente)
 oppure «Cancella tutti i risultati e le presenze» (tutte le gare e la vista alunni). Chiede conferma e non si può annullare.
-Richiede le regole Firestore aggiornate (cancellazione consentita). Senza login non si può distinguere il docente dagli alunni:
-chi conosce l'app e sa usare gli strumenti del browser potrebbe cancellare i punteggi. Per una gara in classe è un rischio accettabile.
+Agisce solo sulla classe scelta ed è riservata ai suoi docenti.
 
 ## Guidami (percorso guidato)
 
@@ -156,10 +176,8 @@ Nota: la riga `<script src="argomenti/....js">` va aggiunta sia in `index.html` 
 
 ## Cose da sapere
 
-- **Il codice docente non è una vera sicurezza**: in un sito statico chi legge il codice sorgente lo vede.
-  Per dei giochi in classe va bene. Se servissero dati sensibili (voti per alunno) servirebbe un login vero.
-- **Nomi**: la gara riconosce gli alunni dal nome scritto. Chi usa nomi diversi nelle tre manche viene
-  contato come persone diverse; due alunni con lo stesso nome si sommano. Meglio «Cognome Nome», sempre scritto allo stesso modo.
+- **Codice classe**: chi lo conosce può entrare con il nome di un compagno. Se il codice circola, rigeneralo; chiudi gli ingressi quando tutti sono entrati. Nella piastrella Classe vedi quanti dispositivi sono entrati.
+- **Nomi**: gli alunni scelgono il nome dall'elenco della classe, quindi niente doppioni o errori di battitura nei report.
 - **Orologio dei dispositivi**: la partenza usa l'orologio di ogni dispositivo. Se uno è sfasato di
   qualche secondo, parte in anticipo o in ritardo rispetto agli altri.
 - **Piano gratuito Firestore**: 50.000 letture e 20.000 scritture al giorno. Una gara con 30 alunni usa

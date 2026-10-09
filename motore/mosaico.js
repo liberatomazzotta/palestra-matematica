@@ -6,7 +6,6 @@
 'use strict';
 const CFG = window.CONFIG || {};
 const FB = CFG.firebase || {};
-const PIN = String(CFG.codiceDocente || 'docente');
 const FINESTRA_MS = 4 * 3600 * 1000;   // mostra chi si è collegato nelle ultime 4 ore
 const OFFLINE_MS = 90 * 1000;          // nessun segnale da 90 s = non più collegato
 const FERMO_MS = 60 * 1000;            // nessuna risposta da 60 s
@@ -21,22 +20,13 @@ let unsubs = [], tick = null, dbRef = null;
 function esc(s){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function configured(){ return !!FB.apiKey && String(FB.apiKey).indexOf('INSERISCI') !== 0; }
 
-// Accesso docente condiviso con il cruscotto (stesso browser): valido 6 ore
-const CHIAVE_DOC = 'palestra_docente_fino';
-function ricordaDocente(){ try{ localStorage.setItem(CHIAVE_DOC, String(Date.now() + 6 * 3600 * 1000)); }catch(e){} }
-function docenteRicordato(){ try{ return Number(localStorage.getItem(CHIAVE_DOC) || 0) > Date.now(); }catch(e){ return false; } }
-function gate(err){
-  root.innerHTML = `<div class="mosaic-gate"><a class="mback" href="index.html#cruscotto">← Cruscotto</a><h1>Vista alunni</h1>
-    <p>Inserisci il codice docente.</p>
-    <input type="password" class="nameinput" id="pin" placeholder="Codice" autocomplete="off">
-    <button class="startbtn" id="go">Entra</button>
-    ${err ? '<p class="board-note err">Codice errato. Riprova.</p>' : ''}
-    ${configured() ? '' : '<p class="board-note err">Manca la configurazione Firebase in config.js.</p>'}</div>`;
-  const ok = () => { if(document.getElementById('pin').value.trim() === PIN){ ricordaDocente(); start(); } else gate(true); };
-  document.getElementById('go').addEventListener('click', ok);
-  const i = document.getElementById('pin');
-  i.addEventListener('keydown', e => { if(e.key === 'Enter') ok(); });
-  i.focus();
+// Accesso: docente entrato con Google nel cruscotto (stesso browser). La classe arriva da ?c=<id>.
+const K_CLASSE_DOC = 'palestra_classe_docente';
+let classeId = null, classi = [];
+function messaggio(html){ root.innerHTML = `<div class="mosaic-gate"><a class="mback" href="index.html#cruscotto">← Cruscotto</a><h1>Vista alunni</h1>${html}</div>`; }
+function classeSel(){
+  if(classi.length < 2) return classi.length ? `<span class="mclasse">Classe ${esc(classi[0].nome)}</span>` : '';
+  return `<select class="sel mclasse" id="mClasse">${classi.map(c => `<option value="${c.id}"${c.id === classeId ? ' selected' : ''}>Classe ${esc(c.nome)}</option>`).join('')}</select>`;
 }
 
 function analizza(d, now){
@@ -367,10 +357,12 @@ function render(force){
   if(effective === 'report' && !force && document.getElementById('mbody') && repDocs) return;
   const out = effective === 'gara' ? renderGara() : effective === 'report' ? renderReport() : renderAllenamento();
   if(!document.getElementById('mbody')){
-    root.innerHTML = `<div class="mosaic-head"><div class="mtitle"><a class="mback" href="index.html#cruscotto">← Cruscotto</a><h1>Vista alunni</h1></div>
+    root.innerHTML = `<div class="mosaic-head"><div class="mtitle"><a class="mback" href="index.html#cruscotto">← Cruscotto</a><h1>Vista alunni</h1>${classeSel()}</div>
       <div class="mtabs"><button data-v="allenamento" id="tabA" title="Allenamento e Guidami">Esercitazione</button><button data-v="gara" id="tabG">Gara</button></div>
       <div class="mbar" id="mbar"></div></div><div id="mbody"></div>`;
     root.querySelectorAll('.mtabs button').forEach(b => b.addEventListener('click', () => { view = b.getAttribute('data-v'); render(true); }));
+    const sel = document.getElementById('mClasse');
+    if(sel) sel.addEventListener('change', () => { try{ localStorage.setItem(K_CLASSE_DOC, JSON.stringify(sel.value)); }catch(e){} location.search = '?c=' + encodeURIComponent(sel.value); });
     // dentro Esercitazione: passaggio alla vista live <-> report
     root.addEventListener('click', e => { const b = e.target.closest('[data-go]'); if(!b) return; view = b.getAttribute('data-go'); if(view === 'report') repDocs = null; render(true); });
   }
@@ -399,22 +391,36 @@ function seguiSessione(sid){
   unsubs.sess.push(dbRef.collection('scores').where('sessionId', '==', sid).onSnapshot(apply(scoreDocs), e => console.error(e)));
 }
 
-function start(){
-  if(!configured() || typeof firebase === 'undefined'){ gate(); return; }
+async function start(){
+  if(!configured() || typeof firebase === 'undefined'){ messaggio('<p class="board-note err">Manca la configurazione Firebase in config.js.</p>'); return; }
   try{ firebase.initializeApp(FB); }catch(e){ if(!/already exists/.test(String(e))) console.error(e); }
-  const db = dbRef = firebase.firestore();
+  const db = firebase.firestore();
+  const auth = firebase.auth();
   root.innerHTML = '<div class="mosaic-gate"><p>Connessione...</p></div>';
+  const u = await new Promise(res => { const off = auth.onAuthStateChanged(x => { off(); res(x); }); });
+  if(!u || u.isAnonymous || !u.email){ messaggio('<p>Accedi prima al <a href="index.html#cruscotto">Cruscotto docente</a> con il tuo account Google.</p>'); return; }
+  const email = String(u.email).toLowerCase();
+  try{
+    const snap = await db.collection('classi').where('docenti', 'array-contains', email).get();
+    classi = snap.docs.map(d => Object.assign({ id: d.id }, d.data())).sort((a, b) => String(a.nome).localeCompare(String(b.nome), 'it', { numeric: true }));
+  }catch(e){ console.error(e); messaggio('<p class="board-note err">Non riesco a leggere le tue classi: controlla connessione e regole di Firestore (e che il tuo accesso sia approvato).</p>'); return; }
+  if(!classi.length){ messaggio('<p>Non hai ancora nessuna classe: creala dal <a href="index.html#cruscotto">Cruscotto docente</a>.</p>'); return; }
+  let id = new URLSearchParams(location.search).get('c');
+  if(!classi.some(c => c.id === id)){ try{ id = JSON.parse(localStorage.getItem(K_CLASSE_DOC) || 'null'); }catch(e){ id = null; } }
+  if(!classi.some(c => c.id === id)) id = classi[0].id;
+  classeId = id;
+  const base = dbRef = db.collection('classi').doc(classeId);
   const fail = err => {
     console.error(err);
     root.innerHTML = '<div class="mosaic-gate"><p class="board-note err">Impossibile leggere i dati. Controlla la connessione e le regole di Firestore.</p></div>';
   };
-  unsubs.push(db.collection('presence').where('lastTs', '>', Date.now() - FINESTRA_MS).onSnapshot(snap => {
+  unsubs.push(base.collection('presence').where('lastTs', '>', Date.now() - FINESTRA_MS).onSnapshot(snap => {
     snap.docChanges().forEach(ch => {
       if(ch.type === 'removed') docs.delete(ch.doc.id); else docs.set(ch.doc.id, ch.doc.data());
     });
     render();
   }, fail));
-  unsubs.push(db.collection('game').doc('state').onSnapshot(snap => {
+  unsubs.push(base.collection('stato').doc('gara').onSnapshot(snap => {
     gameState = snap.exists ? snap.data() : null;
     seguiSessione(gameState ? gameState.sessionId : null);
     const f = fase(gameState, Date.now());
@@ -426,7 +432,5 @@ function start(){
   tick = setInterval(() => { if(document.getElementById('mbody')) render(); }, 1000);
 }
 
-let ok = false;
-ok = docenteRicordato();
-if(ok) start(); else gate();
+start();
 })();

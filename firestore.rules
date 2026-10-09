@@ -1,110 +1,129 @@
 rules_version = '2';
+// Palestra Matematica — regole multi-docente.
+//  /docenti/{email}           docenti registrati (richiesta → attivo, approvati dall'amministratore)
+//  /codici/{codice}           codice classe → id della classe (si legge solo conoscendo il codice)
+//  /classi/{cid}              classe: nome, docenti, codice, ingressi aperti, elenco alunni, impostazioni
+//  /classi/{cid}/membri/{uid} alunni entrati con il codice (accesso anonimo) e nome scelto dall'elenco
+//  /classi/{cid}/stato/gara   gara in corso della classe
+//  /classi/{cid}/{scores|live|presence|players|gare}/...  dati della classe
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Stato della gara corrente: sessione, argomento, manche, orario di partenza,
-    // numero di manches (nManche), modalità (mode: singola/squadre) e squadre (teams).
-    // Senza login non si può distinguere in modo sicuro il docente dagli alunni:
-    // il codice docente nell'app è solo un filtro di interfaccia.
-    match /game/state {
-      allow read: if true;
-      allow write: if request.resource.data.keys().hasAll(['sessionId','topic','manche','startAt','duration','updatedAt'])
-                   && request.resource.data.sessionId is number
-                   && request.resource.data.topic is string
-                   && request.resource.data.manche is number
-                   && request.resource.data.duration is number;
+    // ---------- chi è chi ----------
+    // Amministratore dell'app: approva i docenti. Cambia qui l'indirizzo se serve.
+    function emailAdmin(){ return 'liberato.mazzotta@icoderzo.edu.it'; }
+    function loggato(){ return request.auth != null; }
+    function emailVerificata(){ return loggato() && request.auth.token.get('email_verified', false) == true && request.auth.token.get('email', '') != ''; }
+    function isAdmin(){ return emailVerificata() && request.auth.token.email == emailAdmin(); }
+    function docenteAttivo(){
+      return emailVerificata()
+        && exists(/databases/$(database)/documents/docenti/$(request.auth.token.email))
+        && get(/databases/$(database)/documents/docenti/$(request.auth.token.email)).data.stato == 'attivo';
+    }
+    function classe(cid){ return get(/databases/$(database)/documents/classi/$(cid)).data; }
+    function docenteDi(cid){ return docenteAttivo() && request.auth.token.email in classe(cid).docenti; }
+    function membro(cid){ return get(/databases/$(database)/documents/classi/$(cid)/membri/$(request.auth.uid)).data; }
+    // alunno della classe: entrato con il codice ATTUALE (se il docente rigenera il codice, deve rientrare)
+    function alunnoDi(cid){
+      return loggato()
+        && exists(/databases/$(database)/documents/classi/$(cid)/membri/$(request.auth.uid))
+        && membro(cid).codice == classe(cid).codice;
+    }
+    // l'alunno scrive solo a nome proprio (il nome scelto dall'elenco)
+    function aNomeProprio(cid){
+      return alunnoDi(cid) && request.resource.data.uid == request.auth.uid
+        && request.resource.data.name == membro(cid).nome;
+    }
+    function nomeOk(n){ return n is string && n.size() > 0 && n.size() <= 60; }
+
+    // ---------- docenti ----------
+    match /docenti/{email} {
+      allow get: if emailVerificata() && (request.auth.token.email == email || isAdmin());
+      allow list: if isAdmin();
+      // un docente chiede l'accesso (stato "richiesta"); l'amministratore si registra già attivo
+      // e può aggiungere direttamente l'email di un collega
+      allow create: if request.resource.data.email == email
+        && (isAdmin() || (emailVerificata() && request.auth.token.email == email
+              && request.resource.data.stato == 'richiesta' && request.resource.data.ruolo == 'docente'));
+      allow update, delete: if isAdmin();
     }
 
-    // Punteggi: si possono solo creare (mai modificare né cancellare),
-    // con una forma dei dati controllata.
-    match /scores/{scoreId} {
-      allow read: if true;
-      allow create: if request.resource.data.keys().hasAll(['sessionId','topic','name','score','manche','ts'])
-                    && request.resource.data.sessionId is number
-                    && request.resource.data.topic is string
-                    && request.resource.data.name is string
-                    && request.resource.data.name.size() > 0
-                    && request.resource.data.name.size() <= 40
-                    && request.resource.data.score is number
-                    && request.resource.data.score >= 0
-                    && request.resource.data.score < 100000
-                    && request.resource.data.manche is number
-                    && request.resource.data.manche >= 1
-                    && request.resource.data.manche <= 10;
+    // ---------- codici classe ----------
+    match /codici/{codice} {
+      allow get: if loggato();
+      allow list: if false;
+      allow create: if docenteDi(request.resource.data.classe);
+      allow delete: if docenteDi(resource.data.classe);
       allow update: if false;
-      // Cancellazione consentita (pulsanti "Cancella" del Pannello docente). Senza login non si può
-      // distinguere il docente: in teoria chi conosce l'app potrebbe cancellare i punteggi.
-      allow delete: if true;
     }
 
-    // Presenza degli alunni in allenamento (mosaico docente): un documento per alunno,
-    // sovrascritto; cancellabile dal Pannello docente.
-    match /presence/{pid} {
-      allow read: if true;
-      allow create, update: if request.resource.data.keys().hasAll(['name','topic','correct','wrong','streak','recent','lastTs','active'])
-                            && request.resource.data.name is string
-                            && request.resource.data.name.size() > 0
-                            && request.resource.data.name.size() <= 40
-                            && request.resource.data.topic is string
-                            && request.resource.data.correct is number
-                            && request.resource.data.wrong is number
-                            && request.resource.data.streak is number
-                            && request.resource.data.recent is string
-                            && request.resource.data.recent.size() <= 6
-                            && request.resource.data.lastTs is number
-                            && request.resource.data.active is bool;
-      allow delete: if true;
-    }
+    // ---------- classi ----------
+    match /classi/{cid} {
+      allow get: if docenteDi(cid) || alunnoDi(cid);
+      // elenco delle proprie classi (query con array-contains sulla propria email)
+      allow list: if docenteAttivo() && request.auth.token.email in resource.data.docenti;
+      allow create: if docenteAttivo()
+        && request.resource.data.proprietario == request.auth.token.email
+        && request.resource.data.docenti == [request.auth.token.email]
+        && nomeOk(request.resource.data.nome)
+        && request.resource.data.alunni is list
+        && request.resource.data.aperta is bool;
+      allow update: if docenteDi(cid)
+        && request.resource.data.proprietario == resource.data.proprietario
+        && request.auth.token.email in request.resource.data.docenti
+        && request.resource.data.proprietario in request.resource.data.docenti;
+      allow delete: if docenteAttivo() && resource.data.proprietario == request.auth.token.email;
 
-    // Iscritti alla gara (sala d'attesa del Cruscotto docente, per comporre le squadre).
-    match /players/{pid} {
-      allow read: if true;
-      allow create, update: if request.resource.data.keys().hasAll(['sessionId','name','ts'])
-                            && request.resource.data.sessionId is number
-                            && request.resource.data.name is string
-                            && request.resource.data.name.size() > 0
-                            && request.resource.data.name.size() <= 40
-                            && request.resource.data.ts is number;
-      allow delete: if true;
-    }
+      // alunni entrati con il codice
+      match /membri/{uid} {
+        allow get: if (loggato() && request.auth.uid == uid) || docenteDi(cid);
+        allow list: if docenteDi(cid);
+        allow create, update: if loggato() && request.auth.uid == uid
+          && classe(cid).aperta == true
+          && request.resource.data.codice == classe(cid).codice
+          && (request.resource.data.nome == null || request.resource.data.nome in classe(cid).alunni);
+        allow delete: if docenteDi(cid) || (loggato() && request.auth.uid == uid);
+      }
 
-    // Argomenti e sezioni visibili agli alunni (scelti dal docente).
-    match /config/{cid} {
-      allow read: if true;
-      allow write: if request.resource.data.keys().hasAll(['nascosti','sezioniNascoste','aggiornato'])
-                   && request.resource.data.nascosti is list
-                   && request.resource.data.sezioniNascoste is map;
-    }
+      // gara in corso: la scrive solo il docente
+      match /stato/{doc} {
+        allow read: if docenteDi(cid) || alunnoDi(cid);
+        allow write: if docenteDi(cid);
+      }
 
-    // Archivio gare: una scheda riassuntiva per gara (impostazioni, squadre, classifica finale).
-    match /gare/{gid} {
-      allow read: if true;
-      allow create, update: if request.resource.data.keys().hasAll(['sessionId','topic','nManche','mode'])
-                            && request.resource.data.sessionId is number
-                            && request.resource.data.topic is string
-                            && request.resource.data.nManche is number
-                            && request.resource.data.mode is string;
-      allow delete: if true;
-    }
+      // punteggi di fine manche: l'alunno li crea a nome proprio, mai modificabili
+      match /scores/{id} {
+        allow read: if docenteDi(cid) || alunnoDi(cid);
+        allow create: if docenteDi(cid) || (aNomeProprio(cid)
+          && request.resource.data.sessionId is number
+          && request.resource.data.score is number && request.resource.data.score >= 0 && request.resource.data.score < 100000
+          && request.resource.data.manche is number && request.resource.data.manche >= 1 && request.resource.data.manche <= 10);
+        allow update: if false;
+        allow delete: if docenteDi(cid);
+      }
 
-    // Punteggio parziale durante la manche (vista "Gara live" del docente).
-    match /live/{lid} {
-      allow read: if true;
-      allow create, update: if request.resource.data.keys().hasAll(['sessionId','manche','name','score','correct','wrong','lastTs'])
-                            && request.resource.data.sessionId is number
-                            && request.resource.data.manche is number
-                            && request.resource.data.manche >= 1
-                            && request.resource.data.manche <= 10
-                            && request.resource.data.name is string
-                            && request.resource.data.name.size() > 0
-                            && request.resource.data.name.size() <= 40
-                            && request.resource.data.score is number
-                            && request.resource.data.score >= 0
-                            && request.resource.data.score < 100000
-                            && request.resource.data.correct is number
-                            && request.resource.data.wrong is number
-                            && request.resource.data.lastTs is number;
-      allow delete: if true;
+      // punteggio parziale durante la manche, iscritti alla gara, presenza in esercitazione
+      match /live/{id} {
+        allow read: if docenteDi(cid) || alunnoDi(cid);
+        allow create, update: if docenteDi(cid) || (aNomeProprio(cid)
+          && request.resource.data.score is number && request.resource.data.score >= 0 && request.resource.data.score < 100000);
+        allow delete: if docenteDi(cid);
+      }
+      match /players/{id} {
+        allow read: if docenteDi(cid) || alunnoDi(cid);
+        allow create, update: if docenteDi(cid) || aNomeProprio(cid);
+        allow delete: if docenteDi(cid);
+      }
+      match /presence/{id} {
+        allow read: if docenteDi(cid) || (alunnoDi(cid) && resource.data.uid == request.auth.uid);
+        allow create, update: if docenteDi(cid) || aNomeProprio(cid);
+        allow delete: if docenteDi(cid);
+      }
+
+      // archivio delle gare della classe: solo il docente
+      match /gare/{id} {
+        allow read, write: if docenteDi(cid);
+      }
     }
   }
 }
