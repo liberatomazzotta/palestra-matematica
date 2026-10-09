@@ -678,6 +678,47 @@ const TEORIA = `
   ${TEORIA_MM}
   <p><b>Osservazioni</b>: se b divide a, MCD = b e mcm = a. Se a e b sono primi tra loro, MCD = 1 e mcm = a × b. Sempre: MCD × mcm = a × b.</p>`;
 
+// Teoria divisa per sezioni: in Guidami si vede solo quella delle sezioni scelte dal docente
+const TEORIA_SEZ = {
+  '4.1': `<p>I <b>multipli</b> di un numero si ottengono moltiplicandolo per 0, 1, 2, 3, 4…<br>Multipli di 4: 0, 4, 8, 12, 16, 20…</p>
+    <p>I multipli di un numero sono <b>infiniti</b>. Lo 0 è multiplo di ogni numero.</p>`,
+  '4.2': `<p>I <b>divisori</b> di un numero sono i numeri che lo dividono con <b>resto 0</b>.<br>Divisori di 12: 1, 2, 3, 4, 6, 12.</p>
+    <p>I divisori di un numero sono <b>finiti</b>; 1 e il numero stesso sono sempre divisori. Se b è divisore di a, allora a è multiplo di b (12 è multiplo di 4 e 4 è divisore di 12).</p>`,
+  '4.3': `<p>Un numero è divisibile:<br>
+    • per <b>2</b> se l'ultima cifra è pari (0, 2, 4, 6, 8)<br>
+    • per <b>3</b> se la somma delle cifre è multipla di 3<br>
+    • per <b>4</b> se le ultime due cifre formano un multiplo di 4 (o sono 00)<br>
+    • per <b>5</b> se l'ultima cifra è 0 o 5<br>
+    • per <b>9</b> se la somma delle cifre è multipla di 9<br>
+    • per <b>10</b> se l'ultima cifra è 0<br>
+    • per <b>11</b> se la differenza tra la somma delle cifre di posto dispari e quella delle cifre di posto pari è 0 o un multiplo di 11</p>
+    <p>Esempio: 738 → 7 + 3 + 8 = 18, multiplo di 9: 738 è divisibile per 3 e per 9.</p>`,
+  '4.4': `<p>Un numero è <b>primo</b> se ha solo due divisori: 1 e se stesso (2, 3, 5, 7, 11, 13, 17, 19, 23…).<br>
+    È <b>composto</b> se ha più di due divisori (es. 15: divisori 1, 3, 5, 15).</p>
+    <p>Il numero 1 non è né primo né composto. 2 è l'unico numero primo pari.</p>`,
+  '4.5': `<p><b>Scomporre in fattori primi</b> significa scrivere un numero come prodotto di numeri primi.</p>
+    <p>Si divide il numero per il <b>più piccolo primo</b> che lo divide, poi si ripete sul quoziente, finché si arriva a 1. Fattori uguali si scrivono come potenza.</p>
+    <p>Esempio: 60 : 2 = 30, 30 : 2 = 15, 15 : 3 = 5, 5 : 5 = 1 → <b>60 = 2² × 3 × 5</b>.</p>`,
+  '4.6': `<p><b>Criterio generale</b>: a è divisibile per b se la scomposizione di a contiene <b>tutti</b> i fattori primi di b, ciascuno con esponente <b>uguale o maggiore</b>.</p>
+    <p>Esempio: 360 = 2³ × 3² × 5 è divisibile per 12 = 2² × 3 (c'è 2³ ≥ 2² e 3² ≥ 3); non è divisibile per 14 = 2 × 7 (manca il 7).</p>`,
+  '4.7': `<p>Il <b>MCD</b> (Massimo Comune Divisore) di due o più numeri è il <b>più grande</b> dei loro divisori comuni.</p>
+    <p>Si scompongono i numeri in fattori primi e si prendono i fattori <b>comuni</b>, una sola volta, con l'<b>esponente minore</b>.</p>
+    <p>Esempio: 12 = 2² × 3 e 18 = 2 × 3² → MCD = 2 × 3 = <b>6</b>.</p>`,
+  '4.8': `<p>• Se un numero è divisore dell'altro, il MCD è il <b>numero minore</b>: MCD(6, 18) = 6.<br>
+    • Due numeri si dicono <b>primi tra loro</b> se il loro MCD è 1: MCD(8, 15) = 1.<br>
+    • Due numeri consecutivi sono sempre primi tra loro.</p>`,
+  '4.9': `<p>Il <b>mcm</b> (minimo comune multiplo) di due o più numeri è il <b>più piccolo</b> dei loro multipli comuni diversi da 0.</p>
+    <p>Si scompongono i numeri in fattori primi e si prendono <b>tutti</b> i fattori, comuni e non comuni, una sola volta, con l'<b>esponente maggiore</b>.</p>
+    <p>Esempio: 12 = 2² × 3 e 18 = 2 × 3² → mcm = 2² × 3² = <b>36</b>.</p>`,
+  '4.10': `<p>• Se un numero è multiplo dell'altro, il mcm è il <b>numero maggiore</b>: mcm(6, 18) = 18.<br>
+    • Se due numeri sono primi tra loro, il mcm è il loro <b>prodotto</b>: mcm(8, 15) = 120.<br>
+    • Per due numeri vale sempre: <b>MCD × mcm = a × b</b> (12 e 18: 6 × 36 = 12 × 18 = 216).</p>`,
+  '4.11': `<p>Si usa il <b>MCD</b> quando bisogna <b>dividere</b> quantità diverse in parti (gruppi, pezzi, confezioni) <b>uguali</b> e <b>il più grandi possibile</b>, senza avanzi.</p>
+    <p>Esempio: 24 rose e 36 tulipani in mazzi uguali, il maggior numero di fiori per mazzo: MCD(24, 36) = 12 → mazzi da 12, cioè 2 di rose e 3 di tulipani.</p>`,
+  '4.12': `<p>Si usa il <b>mcm</b> quando si cerca <b>il primo momento</b> in cui fatti che si ripetono con periodi diversi <b>tornano a coincidere</b> (“di nuovo insieme”, “la prima volta che…”).</p>
+    <p>Esempio: un autobus passa ogni 12 minuti, un altro ogni 18. Partono insieme: si ritrovano dopo mcm(12, 18) = <b>36 minuti</b>.</p>`
+};
+
 Palestra.registraArgomento({
   id: 'divisibilita',
   titolo: 'La divisibilità',
@@ -696,6 +737,7 @@ Palestra.registraArgomento({
   },
   guida: {
     teoria: TEORIA,
+    teoriaSezioni: TEORIA_SEZ,
     generaEsercizio(indice){ return [esScomposizione, esCriterio, () => esGuidato('mcd'), () => esGuidato('mcm')][indice % 4](); }
   },
   generaDomandaDi(categoria, livello){

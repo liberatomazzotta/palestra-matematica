@@ -133,6 +133,8 @@ guida: {
 
 Gli argomenti senza `guida` non compaiono nel menu di Guidami.
 
+Facoltativo: `guida.teoriaSezioni: { '4.7': 'HTML', … }` divide la teoria per sezione; in Guidami (e in "Rivedi la teoria") l'alunno vede solo la teoria delle sezioni scelte dal docente.
+
 ## Aggiungere un argomento
 
 Risposte con la virgola: tipo `numerica` con `decimali: 2` (e `tolleranza`, predefinita 0,01); l'alunno può scrivere 8,66 o 8.66.

@@ -338,6 +338,42 @@ const SEZIONI = [
   { id: '5.11', titolo: 'Risolvere problemi con le frazioni', categorie: ['problemi'] }
 ];
 
+// Teoria divisa per sezioni: in Guidami si vede solo quella delle sezioni scelte dal docente
+const TEORIA_SEZ = {
+  'Esp.': `${figRettangolo(1, 4, 3)}
+    <p>Il rettangolo è diviso in <b>4 parti uguali</b> e ne sono colorate <b>3</b>: la parte colorata è ${fr(3, 4)} del rettangolo.</p>
+    <p>Le parti devono essere <b>uguali</b>, non importa dove si trovano quelle colorate.</p>`,
+  '5.1': `<p>Una <b>frazione</b> ${fr('n', 'd')}: il <b>denominatore</b> d indica in quante parti uguali si divide l'intero, il <b>numeratore</b> n quante parti se ne prendono.</p>
+    <p>Un'<b>unità frazionaria</b> ha numeratore 1: ${fr(1, 2)}, ${fr(1, 3)}, ${fr(1, 4)}…</p>
+    <p><b>Frazione come operatore</b>: per calcolare ${fr(3, 4)} di 20 si divide per il denominatore e si moltiplica per il numeratore: 20 : 4 × 3 = <b>15</b>.</p>`,
+  '5.2': `<p>Una frazione è anche il <b>quoziente</b> tra numeratore e denominatore: ${fr(3, 4)} = 3 : 4 = 0,75.</p>
+    <p>${fr(12, 3)} = 12 : 3 = 4. La linea di frazione equivale al segno di divisione.</p>`,
+  '5.3': `<p>• <b>Propria</b>: numeratore minore del denominatore, vale meno dell'intero (${fr(2, 5)}).<br>
+    • <b>Impropria</b>: numeratore maggiore del denominatore, vale più dell'intero (${fr(7, 4)}).<br>
+    • <b>Apparente</b>: numeratore multiplo del denominatore, è un numero naturale (${fr(8, 4)} = 2).</p>`,
+  '5.4': `<p>La <b>frazione complementare</b> è quella che manca per arrivare all'intero: la complementare di ${fr(3, 8)} è ${fr(5, 8)}, perché ${fr(3, 8)} + ${fr(5, 8)} = ${fr(8, 8)} = 1.</p>
+    <p>Una frazione impropria si può scrivere come <b>numero misto</b>: ${fr(11, 4)} → 11 : 4 = 2 resto 3 → 2 e ${fr(3, 4)}.<br>
+    Al contrario: 2 e ${fr(3, 4)} = ${fr('2 × 4 + 3', 4)} = ${fr(11, 4)}.</p>`,
+  '5.5': `<p>Due frazioni sono <b>equivalenti</b> se rappresentano la stessa parte dell'intero: ${fr(1, 2)} = ${fr(2, 4)} = ${fr(3, 6)}.</p>
+    <p><b>Proprietà invariantiva</b>: moltiplicando o dividendo numeratore e denominatore per lo stesso numero (diverso da 0) si ottiene una frazione equivalente.</p>
+    <p>Verifica con i prodotti incrociati: ${fr(2, 3)} e ${fr(6, 9)} sono equivalenti perché 2 × 9 = 3 × 6.</p>`,
+  '5.6': `<p><b>Semplificare</b> significa dividere numeratore e denominatore per uno stesso divisore comune.</p>
+    <p>Una frazione è <b>ridotta ai minimi termini</b> quando numeratore e denominatore sono primi tra loro. Si ottiene subito dividendo per il loro <b>MCD</b>: ${fr(18, 24)} → MCD = 6 → ${fr(3, 4)}.</p>`,
+  '5.7': `<p>Per trasformare una frazione in una equivalente con un <b>denominatore assegnato</b>: si divide il nuovo denominatore per il vecchio e si moltiplica il numeratore per il risultato.</p>
+    <p>${fr(3, 5)} = ${fr('?', 20)} → 20 : 5 = 4 → 3 × 4 = 12 → ${fr(12, 20)}.</p>`,
+  '5.8': `<p>Per <b>ridurre al minimo comune denominatore</b> più frazioni: si calcola il <b>mcm</b> dei denominatori e si trasforma ogni frazione in una equivalente con quel denominatore.</p>
+    <p>${fr(1, 4)} e ${fr(5, 6)}: mcm(4, 6) = 12 → ${fr(3, 12)} e ${fr(10, 12)}.</p>`,
+  '5.9': `<p>• Con lo <b>stesso denominatore</b> è maggiore la frazione con il numeratore maggiore: ${fr(5, 7)} &gt; ${fr(3, 7)}.<br>
+    • Con lo <b>stesso numeratore</b> è maggiore quella con il denominatore minore: ${fr(3, 4)} &gt; ${fr(3, 5)}.<br>
+    • Altrimenti si riducono allo <b>stesso denominatore</b> (mcm) e si confrontano i numeratori.</p>`,
+  '5.10': `${figRetta(3, 4, 2)}
+    <p>Le frazioni equivalenti tra loro rappresentano lo stesso <b>numero razionale</b>. L'insieme dei numeri razionali assoluti si indica con <b>Qa</b>; contiene anche i numeri naturali (3 = ${fr(3, 1)}).</p>
+    <p>Sulla <b>retta</b> si divide ogni unità in tante parti quante indica il denominatore e se ne contano tante quante indica il numeratore: P corrisponde a ${fr(3, 4)}.</p>`,
+  '5.11': `<p>• <b>Dato l'intero, trovare la parte</b>: si usa la frazione come operatore. ${fr(2, 5)} di 30 € = 30 : 5 × 2 = 12 €.<br>
+    • <b>Data la parte, trovare l'intero</b>: si divide per il numeratore e si moltiplica per il denominatore. Se ${fr(2, 5)} sono 12 €, l'intero è 12 : 2 × 5 = 30 €.</p>
+    <p>Spesso conviene un disegno: l'intero diviso in tante parti quante indica il denominatore.</p>`
+};
+
 Palestra.registraArgomento({
   id: 'frazioni',
   titolo: 'Le frazioni e l\'insieme Qa',
@@ -352,6 +388,7 @@ Palestra.registraArgomento({
   },
   guida: {
     teoria: TEORIA,
+    teoriaSezioni: TEORIA_SEZ,
     generaEsercizio(indice){ return [esSemplifica, esConfronto, esMisto, esProblema][indice % 4](); }
   },
   generaDomandaDi(categoria, livello){ return GEN[categoria] ? Object.assign(GEN[categoria](livello), { categoria }) : null; },

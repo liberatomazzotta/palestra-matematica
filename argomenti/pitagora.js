@@ -460,6 +460,42 @@ function esRettangolo(){
   };
 }
 
+// Teoria divisa per sezioni: in Guidami si vede solo quella delle sezioni scelte dal docente
+const TEORIA_SEZ = {
+  '2.1': `${figQuadrati(3, 4, { a: '9', b: '16', c: '25' })}
+    <p>In un triangolo rettangolo i lati che formano l'angolo retto sono i <b>cateti</b>; il lato opposto all'angolo retto è l'<b>ipotenusa</b>, il lato più lungo.</p>
+    <p><b>Teorema di Pitagora</b>: il quadrato costruito sull'ipotenusa è equivalente alla somma dei quadrati costruiti sui cateti: <b>i² = c₁² + c₂²</b>. Nella figura 9 + 16 = 25.</p>
+    <p>Vale anche al contrario: se in un triangolo il quadrato del lato maggiore è uguale alla somma dei quadrati degli altri due, il triangolo è <b>rettangolo</b>.</p>`,
+  '2.2': `${figTriangolo(4, 3, { a: '4 cm', b: '3 cm', c: 'i = 5 cm' })}
+    <p>• Ipotenusa: <b>i = √(c₁² + c₂²)</b> → √(4² + 3²) = √25 = 5 cm<br>
+    • Cateto: <b>c₁ = √(i² − c₂²)</b> → √(5² − 3²) = √16 = 4 cm — per il cateto si <b>sottrae</b>!</p>
+    <p>Perimetro = somma dei tre lati; area = c₁ × c₂ : 2.</p>`,
+  '2.3': `${figRettangolo(4, 3, { b: 'b', h: 'h', d: 'd' })}
+    <p>La <b>diagonale</b> divide il rettangolo in due triangoli rettangoli: i lati sono i cateti, la diagonale è l'ipotenusa. <b>d = √(b² + h²)</b>.</p>
+    <p>Nel <b>parallelogramma</b>, l'altezza staccata da un vertice forma un triangolo rettangolo: il lato obliquo è l'ipotenusa, l'altezza e la proiezione sono i cateti.</p>`,
+  '2.4': `<p>La diagonale divide il quadrato in due triangoli rettangoli isosceli: <b>d = √(l² + l²) = l × √2 ≈ l × 1,414</b>.</p>
+    <p>Al contrario: <b>l = d : √2 ≈ d : 1,414</b>. L'area si può calcolare anche come <b>d² : 2</b>.</p>`,
+  '2.5': `${figIsoscele(6, 4, { base: 'b', h: 'h', lato: 'l' })}
+    <p>L'altezza relativa alla base divide il triangolo isoscele in due triangoli rettangoli uguali: cateti = <b>altezza</b> e <b>metà base</b>, ipotenusa = <b>lato obliquo</b>.</p>
+    <p>h = √(l² − (b/2)²) &nbsp;&nbsp; l = √(h² + (b/2)²)</p>`,
+  '2.6': `<p>Nel triangolo equilatero l'altezza cade nel punto medio del lato: h = √(l² − (l/2)²).</p>
+    <p>Formula pratica: <b>h = l × √3 : 2 ≈ l × 0,866</b>; al contrario l = h : 0,866.</p>`,
+  '2.7': `<p>• Triangolo rettangolo con angoli di <b>45°</b> (metà quadrato): i cateti sono uguali e l'ipotenusa è <b>c × √2</b>.<br>
+    • Triangolo rettangolo con angoli di <b>30° e 60°</b> (metà triangolo equilatero): il cateto minore (opposto a 30°) è <b>metà dell'ipotenusa</b>; il cateto maggiore è <b>cateto minore × √3</b>.</p>`,
+  '2.8': `${figRombo(8, 6, { d1: 'D', d2: 'd', l: 'l' })}
+    <p>Le diagonali del rombo sono perpendicolari e si tagliano a metà: formano 4 triangoli rettangoli con cateti <b>D/2</b> e <b>d/2</b> e ipotenusa il <b>lato</b>.</p>
+    <p>l = √((D/2)² + (d/2)²)</p>`,
+  '2.9': `<p>Nel <b>trapezio rettangolo</b> l'altezza dal vertice della base minore stacca un triangolo rettangolo: cateti = <b>altezza</b> e <b>B − b</b> (differenza delle basi), ipotenusa = <b>lato obliquo</b>.</p>
+    <p>lato obliquo = √(h² + (B − b)²)</p>`,
+  '2.10': `<p>Nel <b>trapezio isoscele</b> le due altezze staccano due triangoli rettangoli uguali: cateti = <b>altezza</b> e proiezione <b>(B − b) : 2</b>, ipotenusa = <b>lato obliquo</b>.</p>
+    <p>lato obliquo = √(h² + ((B − b)/2)²)</p>`,
+  '2.11': `${figPiano([2, 2], [8, 10])}
+    <p>Il segmento AB è l'ipotenusa di un triangolo rettangolo con cateti paralleli agli assi: Δx = differenza delle ascisse, Δy = differenza delle ordinate.</p>
+    <p><b>AB = √(Δx² + Δy²)</b>. Nella figura: Δx = 8 − 2 = 6, Δy = 10 − 2 = 8 → AB = √(36 + 64) = 10.</p>`,
+  '2.12': `<p>Una <b>terna pitagorica</b> è formata da tre numeri interi a, b, c con a² + b² = c².</p>
+    <p>Terne fondamentali: 3-4-5, 5-12-13, 8-15-17, 7-24-25. Moltiplicando una terna per uno stesso numero si ottiene un'altra terna: 6-8-10, 9-12-15…</p>`
+};
+
 Palestra.registraArgomento({
   id: 'pitagora',
   titolo: 'Teorema di Pitagora',
@@ -476,6 +512,7 @@ Palestra.registraArgomento({
   },
   guida: {
     teoria: TEORIA,
+    teoriaSezioni: TEORIA_SEZ,
     generaEsercizio(indice){ return [esIpotenusa, esCateto, esRettangolo][indice % 3](); }
   },
   generaDomandaDi(categoria, livello){

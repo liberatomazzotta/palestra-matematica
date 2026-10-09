@@ -1110,6 +1110,14 @@ function mostraNumerica(q, area, ctx){
 //   guida: { teoria: 'HTML', generaEsercizio(indice) -> { titolo, testo, passi:[...], conclusione } }
 //   passo: { testo, tipo:'scelta'|'numerica', opzioni, corretta, suggerimento, spiegazione }
 let guidaCtx = null;
+// Teoria di Guidami: se l'argomento la divide per sezioni (guida.teoriaSezioni), solo quella delle sezioni scelte dal docente
+function teoriaDi(id, secIds){
+  const g = TOPICS[id].guida, ts = g.teoriaSezioni;
+  if(!ts) return g.teoria;
+  const lista = sezioniDi(id).filter(x => ts[x.id] && (!secIds || secIds.indexOf(x.id) > -1));
+  if(!lista.length) return g.teoria;
+  return lista.map(x => `<div class="theory-sec">${U.esc(x.id)} ${U.esc(x.titolo)}</div>${typeof ts[x.id] === 'function' ? ts[x.id]() : ts[x.id]}`).join('');
+}
 function startGuida(scelta, nomeNoto, sez){
   const topicIds = listaTopic(scelta).filter(id => TOPICS[id].guida), topicId = topicIds.join('+');
   const inp = document.getElementById('nomeInput');
@@ -1132,7 +1140,7 @@ function startGuida(scelta, nomeNoto, sez){
   guidaCtx = { topicId, topicIds, indice: 0, nome, sezioni: sez, catPermesse: categoriePermesse(sez) };
   presGuida(0, 0, 0);
   setModeLabel(topicTitle(topicId) + ' · Guidami');
-  const teoria = topicIds.map(id => (topicIds.length > 1 ? `<div class="theory-head">${U.esc(TOPICS[id].titolo)}</div>` : '') + TOPICS[id].guida.teoria).join('<hr class="theory-sep">');
+  const teoria = topicIds.map(id => (topicIds.length > 1 ? `<div class="theory-head">${U.esc(TOPICS[id].titolo)}</div>` : '') + teoriaDi(id, sez[id])).join('<hr class="theory-sep">');
   renderHud('none');
   panel.innerHTML = `
     <div class="guide">
