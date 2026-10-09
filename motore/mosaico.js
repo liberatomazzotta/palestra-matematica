@@ -197,6 +197,7 @@ function tableManche(n){
   const best = {};
   rows.forEach(e => { const k = keyOf(e.name); if(!best[k] || e.score > best[k].score) best[k] = e; });
   const list = Object.values(best).sort((a, b) => b.score - a.score || String(a.name).localeCompare(String(b.name), 'it'));
+  if(!list.length) return '';   // senza dati niente titolo né tabella
   const tr = list.map((e, i) => `<tr><td class="rank">${i + 1}</td><td class="name">${esc(e.name)}</td><td class="pts">${e.score}</td></tr>`).join('');
   let sq = '';
   if(aSquadre()){ const v = {}; list.forEach(e => { v[keyOf(e.name)] = e.score; }); sq = tabellaSquadre(classificaSquadre(v), `Squadre — Manche ${n}`); }
@@ -206,6 +207,7 @@ function tableManche(n){
 }
 function tableGenerale(){
   const list = standings(0).sort((a, b) => b.total - a.total || Math.max.apply(null, b.m) - Math.max.apply(null, a.m) || String(a.name).localeCompare(String(b.name), 'it'));
+  if(!list.length) return '';
   const N = nManche();
   const tr = list.map((e, i) => `<tr><td class="rank">${i + 1}</td><td class="name">${esc(e.name)}</td>${e.m.map(x => `<td class="pts">${x || '–'}</td>`).join('')}<td class="pts tot">${e.total}</td></tr>`).join('');
   let sq = '';
@@ -249,7 +251,8 @@ function renderGara(){
       body: sq + `<div class="llist">${li || '<div class="empty-board">Aspetto i primi punteggi…</div>'}</div>` };
   }
   // finished: classifica manche + generale
-  return { bar: `<span>${titolo} conclusa</span>`, body: `<div class="mcols">${tableManche(f.manche)}${tableGenerale()}</div>` };
+  const tab = tableManche(f.manche) + tableGenerale();
+  return { bar: `<span>${titolo} conclusa</span>`, body: tab ? `<div class="mcols">${tab}</div>` : '<div class="empty-board">Nessun punteggio registrato in questa manche.</div>' };
 }
 
 // ---- Report per alunno ----
