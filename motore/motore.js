@@ -1988,8 +1988,11 @@ function garaDisegna(force){
   if(!t || !body) return;
   if(t.err){ body.innerHTML = '<div class="board-note err">Non riesco a leggere lo stato della gara: controlla connessione e regole Firestore.</div>'; return; }
   if(!t.ready) return;
-  if(t.setup || !t.state || !t.state.sessionId){
-    if(!body.querySelector('#sCrea')) garaImpostazione(body);
+  const conclusa = garaConclusa(t.state, Date.now(), true);
+  if(t.setup || !t.state || !t.state.sessionId || conclusa){
+    // gara finita: si salva (definitivamente) in archivio e si propone subito una nuova gara
+    if(conclusa && t.archiviata !== t.state.sessionId){ t.archiviata = t.state.sessionId; archiviaGara(t.state, null).catch(e => console.warn('archivio non aggiornato', e)); }
+    if(!body.querySelector('#sCrea') || force) garaImpostazione(body, conclusa);
     return;
   }
   if(!body.querySelector('#gStato') || force){
@@ -2000,12 +2003,22 @@ function garaDisegna(force){
   garaStato();
 }
 
-function garaImpostazione(body){
+// gara conclusa: ultima manche finita (con margine di 20 s per i punteggi in arrivo)
+function garaConclusa(d, now, conMargine){
+  if(!d || !d.sessionId || !d.startAt) return false;
+  const info = derivePhase(d, now);
+  return info.phase === 'finished' && info.manche >= nMancheDi(d) && (!conMargine || now - (d.startAt + (d.duration || DURATA_MS)) > 20000);
+}
+function garaImpostazione(body, conclusa){
   const t = teacherCtx, prev = (t && t.state) || {};
   const nPrev = nMancheDi(prev), dPrev = Math.round((prev.duration || DURATA_MS) / 1000);
   const modo = prev.mode === 'squadre' ? 'squadre' : 'singola';
   const nSq = aSquadre(prev) ? prev.teams.length : 2;
   body.innerHTML = `
+    ${conclusa ? `<div class="tsec gconclusa">
+      <div><b>Ultima gara conclusa</b> · ${U.esc(topicTitle(prev.topic))}<br><span class="tsum">Salvata nell'Archivio gare.</span></div>
+      <button class="ghostbtn small" id="sPodio">Classifica finale (podio)</button>
+    </div>` : ''}
     <div class="tsec">
       <div class="tsec-title">Nuova gara</div>
       ${(() => { const salva = menuTopics; menuTopics = listaTopic(prev.topic); const h = sceltaArgomenti(ORDER, 'sTopic', { tutte: true, sezioni: prev.sezioni || {} }); menuTopics = salva; return h; })()}
@@ -2026,8 +2039,12 @@ function garaImpostazione(body){
       <div class="board-note" id="sNota">${modo === 'squadre' ? 'Dopo aver creato la gara, gli alunni entrano e tu li assegni alle squadre. Il punteggio di una squadra è la media dei suoi componenti.' : 'Classifica individuale con podio finale.'}</div>
       <div class="trow">
         <button class="startbtn" id="sCrea">Crea la gara</button>
-        ${t && t.state && t.state.sessionId ? '<button class="ghostbtn" id="sAnnulla">Annulla</button>' : ''}
+        ${t && t.state && t.state.sessionId && !conclusa ? '<button class="ghostbtn" id="sAnnulla">Annulla</button>' : ''}
       </div>
+    </div>
+    <div class="tsec">
+      <div class="tsec-title">Alunni in gara</div>
+      <div class="board-note">Crea la gara: gli alunni che entrano compariranno qui.</div>
     </div>`;
   const q = id => document.getElementById(id);
   attivaSceltaArgomenti('sTopic');
@@ -2037,6 +2054,7 @@ function garaImpostazione(body){
     q('sNota').textContent = sq ? 'Dopo aver creato la gara, gli alunni entrano e tu li assegni alle squadre. Il punteggio di una squadra è la media dei suoi componenti.' : 'Classifica individuale con podio finale.';
   }));
   if(q('sAnnulla')) q('sAnnulla').addEventListener('click', () => { t.setup = false; garaDisegna(true); });
+  if(q('sPodio')) q('sPodio').addEventListener('click', () => { const sid = prev.sessionId; stopAll(); renderFinalPodium(sid, () => renderTeacherGara()); });
   q('sCrea').addEventListener('click', async () => {
     const cur = t.state ? derivePhase(t.state, Date.now()) : null;
     if(cur && (cur.phase === 'running' || cur.phase === 'countdown') && !window.confirm('Una manche è in corso. Creare comunque una nuova gara?')) return;
@@ -2143,6 +2161,8 @@ function garaStato(){
     const firma = d.sessionId + '#' + info.manche + '#' + t.scores.length;
     if(t.firmaArchivio !== firma){ t.firmaArchivio = firma; archiviaGara(d, t.scores).catch(e => console.warn('archivio non aggiornato', e)); }
   }
+  // ultima manche finita (e passati 20 s per i punteggi): si passa alla nuova gara
+  if(garaConclusa(d, Date.now(), true)){ garaDisegna(true); return; }
   // squadre bloccate mentre si gioca
   const blocca = info.phase === 'countdown' || info.phase === 'running';
   document.querySelectorAll('#gPart select, #gPart .chip-x, #gPart .gpbtn').forEach(el => { el.disabled = blocca; });

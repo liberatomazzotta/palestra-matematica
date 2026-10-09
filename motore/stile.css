@@ -532,3 +532,5 @@ a.backlink{text-decoration:none;display:inline-flex;align-items:center;}
 .calc-swrow input:focus-visible + .sw{outline:2px solid var(--blue);outline-offset:2px;}
 @media (max-width:520px){.calc-box{right:8px;left:8px;width:auto;}}
 @media print{.calc-fab,.calc-box{display:none!important;}}
+.tsec.gconclusa{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;border-color:var(--green);}
+.levelrow[hidden]{display:none;}
