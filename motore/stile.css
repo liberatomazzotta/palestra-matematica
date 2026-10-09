@@ -199,6 +199,10 @@ header.top{display:flex;align-items:center;justify-content:space-between;margin-
 body.mosaic-page{background:var(--board);min-height:100vh;margin:0;}
 .mosaic-wrap{padding:22px 18px 8px;max-width:1500px;margin:0 auto;color:var(--chalk);font-family:var(--font-ui);}
 .mosaic-gate{max-width:360px;margin:12vh auto;text-align:center;display:flex;flex-direction:column;gap:12px;}
+.mtitle{display:flex;flex-direction:column;align-items:flex-start;gap:2px;}
+.mback{font-family:var(--font-ui);font-size:13px;font-weight:700;color:var(--chalk-dim);text-decoration:none;padding:4px 8px;margin-left:-8px;border-radius:8px;}
+.mback:hover{color:var(--chalk);}
+.mosaic-gate .mback{align-self:flex-start;}
 .mosaic-head{display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:16px;}
 .mosaic-head h1,.mosaic-gate h1{font-family:var(--font-hand);font-size:34px;margin:0;font-weight:400;}
 .mbar{display:flex;gap:22px;font-size:17px;color:var(--chalk-dim);}

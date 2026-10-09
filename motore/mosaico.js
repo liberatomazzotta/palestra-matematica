@@ -26,7 +26,7 @@ const CHIAVE_DOC = 'palestra_docente_fino';
 function ricordaDocente(){ try{ localStorage.setItem(CHIAVE_DOC, String(Date.now() + 6 * 3600 * 1000)); }catch(e){} }
 function docenteRicordato(){ try{ return Number(localStorage.getItem(CHIAVE_DOC) || 0) > Date.now(); }catch(e){ return false; } }
 function gate(err){
-  root.innerHTML = `<div class="mosaic-gate"><h1>Vista alunni</h1>
+  root.innerHTML = `<div class="mosaic-gate"><a class="mback" href="index.html#cruscotto">← Cruscotto</a><h1>Vista alunni</h1>
     <p>Inserisci il codice docente.</p>
     <input type="password" class="nameinput" id="pin" placeholder="Codice" autocomplete="off">
     <button class="startbtn" id="go">Entra</button>
@@ -357,7 +357,7 @@ function render(force){
   if(effective === 'report' && !force && document.getElementById('mbody') && repDocs) return;
   const out = effective === 'gara' ? renderGara() : effective === 'report' ? renderReport() : renderAllenamento();
   if(!document.getElementById('mbody')){
-    root.innerHTML = `<div class="mosaic-head"><h1>Vista alunni</h1>
+    root.innerHTML = `<div class="mosaic-head"><div class="mtitle"><a class="mback" href="index.html#cruscotto">← Cruscotto</a><h1>Vista alunni</h1></div>
       <div class="mtabs"><button data-v="allenamento" id="tabA" title="Allenamento e Guidami">Esercitazione</button><button data-v="gara" id="tabG">Gara</button><button data-v="report" id="tabR">Report</button></div>
       <div class="mbar" id="mbar"></div></div><div id="mbody"></div>`;
     root.querySelectorAll('.mtabs button').forEach(b => b.addEventListener('click', () => { view = b.getAttribute('data-v'); if(view === 'report') repDocs = null; render(true); }));

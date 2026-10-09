@@ -16,7 +16,7 @@
 <script src="config.js"></script>
 <script>
   // Il mosaico legge dagli argomenti solo titoli e nomi delle categorie (per il report).
-  window.Palestra = { utils: {}, _argomenti: {}, registraArgomento(t){ if(t && t.id) this._argomenti[t.id] = t; } };
+  window.Palestra = { utils: new Proxy({}, { get: () => () => '' }), _argomenti: {}, registraArgomento(t){ if(t && t.id) this._argomenti[t.id] = t; } };
 </script>
 <!-- Argomenti: stessa lista di index.html -->
 <script src="argomenti/divisibilita.js"></script>

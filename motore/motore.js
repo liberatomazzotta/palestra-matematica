@@ -2482,7 +2482,9 @@ function avvia(){
   // link "Cruscotto docente" nel footer
   const fd = document.getElementById('footDocente');
   if(fd) fd.addEventListener('click', e => { e.preventDefault(); renderTeacherGate(); });
-  renderMenu();
+  // index.html#cruscotto (link "← Cruscotto" della Vista alunni): si apre direttamente il cruscotto
+  if(location.hash === '#cruscotto'){ try{ history.replaceState(null, '', location.pathname + location.search); }catch(e){} renderTeacherGate(); }
+  else renderMenu();
 }
 
 window.Palestra = { registraArgomento, utils: U, avvia, _topics: TOPICS, _visibili: impostaVisibili, _calc: calcValuta };
