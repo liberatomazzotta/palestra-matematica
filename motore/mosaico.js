@@ -143,7 +143,8 @@ function renderAllenamento(){
   const banner = freq.length ? `<div class="mfreq"><b>Errori più frequenti oggi</b>${freq.map(f =>
       `<span class="chip">${esc(nomeCat(f.topic, f.cat))} · <b>${f.alunni}</b> ${f.alunni === 1 ? 'alunno' : 'alunni'}, ${f.ko} errori</span>`).join('')}</div>` : '';
   return {
-    bar: `<span><b>${online}</b> collegati</span><span class="${aiuto ? 'warn' : ''}"><b>${aiuto}</b> in difficoltà</span>`,
+    // i contatori compaiono solo quando c'è qualcosa da contare
+    bar: (online ? `<span><b>${online}</b> ${online === 1 ? 'collegato' : 'collegati'}</span>` : '') + (aiuto ? `<span class="warn"><b>${aiuto}</b> in difficoltà</span>` : ''),
     body: banner + `<div class="mgrid">${tiles || '<div class="empty-board">Nessun alunno in esercitazione (allenamento o Guidami). Compaiono qui appena iniziano.</div>'}</div>`
   };
 }
