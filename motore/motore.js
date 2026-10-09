@@ -117,10 +117,27 @@ function setModeLabel(t){ modeLabelEl.textContent = t || ''; }
 function nameKey(n){ return String(n || '').trim().replace(/\s+/g, ' ').toLowerCase(); }
 // ---------- sezioni del libro e argomenti visibili agli alunni ----------
 // Un argomento può dichiarare  sezioni: [{ id: '4.5', titolo: 'Scomposizione…', categorie: ['scomp'] }, …]
-let VISIBILI = { nascosti: [], sezioniNascoste: {} };   // deciso dal docente (Firestore: config/argomenti)
+// Scelta del docente, separata per Allenamento e Guidami (Firestore: config/argomenti). L'alunno non sceglie.
+const VUOTO_VIS = () => ({ nascosti: [], sezioniNascoste: {} });
+let VISIBILI = { allenamento: VUOTO_VIS(), guidami: VUOTO_VIS() };
+function impostaVisibili(d){
+  const base = { nascosti: (d && d.nascosti) || [], sezioniNascoste: (d && d.sezioniNascoste) || {} };
+  VISIBILI = { allenamento: (d && d.allenamento) || base, guidami: (d && d.guidami) || base };
+}
+function vis(modo){ return VISIBILI[modo || 'allenamento'] || VUOTO_VIS(); }
 function sezioniDi(id){ return (TOPICS[id] && TOPICS[id].sezioni) || []; }
-function sezioniVisibili(id){ const h = (VISIBILI.sezioniNascoste || {})[id] || []; return sezioniDi(id).filter(x => h.indexOf(x.id) < 0); }
-function topicVisibile(id){ return (VISIBILI.nascosti || []).indexOf(id) < 0 && (!sezioniDi(id).length || sezioniVisibili(id).length > 0); }
+function sezioniVisibili(id, modo){ const h = (vis(modo).sezioniNascoste || {})[id] || []; return sezioniDi(id).filter(x => h.indexOf(x.id) < 0); }
+function topicVisibile(id, modo){ return (vis(modo).nascosti || []).indexOf(id) < 0 && (!sezioniDi(id).length || sezioniVisibili(id, modo).length > 0); }
+// Elenco in sola lettura di ciò che il docente ha scelto (macroargomenti e, sotto, le sezioni)
+function riepilogoArgomenti(ids, modo){
+  if(!ids.length) return '<div class="empty-board">Il docente non ha ancora scelto gli argomenti.</div>';
+  return `<div class="levelrow">Argomenti scelti dal docente
+    <div class="topicpick sola-lettura">${ids.map(id => {
+      const viste = sezioniVisibili(id, modo);
+      const sotto = viste.length ? `<ul>${viste.map(x => `<li>${U.esc(x.id)} ${U.esc(x.titolo)}</li>`).join('')}</ul>` : '';
+      return `<div class="tp-ro"><b>${U.esc(TOPICS[id].titolo)}</b>${sotto}</div>`;
+    }).join('')}</div></div>`;
+}
 function categorieSezioni(id, secIds){
   const out = [];
   sezioniDi(id).forEach(x => { if(secIds.indexOf(x.id) > -1) x.categorie.forEach(c => { if(out.indexOf(c) < 0) out.push(c); }); });
@@ -532,25 +549,26 @@ function drawMenu(){
   let corpo;
 
   if(menuView === 'guidami'){
-    const idG = ORDER.filter(id => TOPICS[id].guida && topicVisibile(id));
+    const idG = ORDER.filter(id => TOPICS[id].guida && topicVisibile(id, 'guidami'));
     corpo = `
       ${mascotteSezione('guidami')}
       <div class="section-title">Guidami</div>
       <div class="section-sub">Prima un ripasso di teoria, poi esercizi risolti passo dopo passo e con possibilità di chiedere aiuto.</div>
       ${idG.length ? `
-      ${sceltaArgomenti(idG, 'topicSelG')}
-      <button class="startbtn" id="startGuidaBtn">Inizia il percorso guidato</button>` : '<div class="empty-board">Nessun argomento ha ancora un percorso guidato.</div>'}`;
+      ${riepilogoArgomenti(idG, 'guidami')}
+      <button class="startbtn" id="startGuidaBtn">Inizia il percorso guidato</button>` : '<div class="empty-board">Il docente non ha ancora scelto gli argomenti.</div>'}`;
   } else if(menuView === 'allenamento'){
+    const idA = ORDER.filter(id => topicVisibile(id, 'allenamento'));
     corpo = `
       ${mascotteSezione('allenamento')}
       <div class="section-title">Allenamento</div>
       <div class="section-sub">Esercitati in completa autonomia: nessun aiuto. Te la devi cavare da solo!</div>
-      ${ORDER.length ? `
-      ${sceltaArgomenti(ORDER.filter(topicVisibile), 'topicSel')}
+      ${idA.length ? `
+      ${riepilogoArgomenti(idA, 'allenamento')}
       <label class="levelrow">Scegli il livello
         <select class="sel" id="livelloSel">${livelli.map(l => `<option value="${l[0]}"${String(praticaLivello) === l[0] ? ' selected' : ''}>${l[1]}</option>`).join('')}</select>
       </label>
-      <button class="startbtn" id="startPraticaBtn">Inizia l'allenamento</button>` : '<div class="empty-board">Nessun argomento installato.</div>'}`;
+      <button class="startbtn" id="startPraticaBtn">Inizia l'allenamento</button>` : '<div class="empty-board">Il docente non ha ancora scelto gli argomenti.</div>'}`;
   } else if(menuView === 'gara'){
     corpo = `
       ${mascotteSezione('gara')}
@@ -585,23 +603,16 @@ function drawMenu(){
   panel.innerHTML = `<div class="menu">${html}</div>`;
 
   const q = id => document.getElementById(id);
-  attivaSceltaArgomenti('topicSel'); attivaSceltaArgomenti('topicSelG');
   if(q('goGuida')) q('goGuida').addEventListener('click', () => setMenuView('guidami'));
   if(q('startGuidaBtn')) q('startGuidaBtn').addEventListener('click', () => {
-    const ids = leggiArgomenti('topicSelG'); if(!ids.length) return;
-    const sez = leggiSezioni('topicSelG', ids); if(!sez) return;
-    menuTopics = ids; menuSezioni = sez; startGuida(ids, null, sez);
+    startGuida(ORDER.filter(id => TOPICS[id].guida && topicVisibile(id, 'guidami')));
   });
   if(q('goAllenamento')) q('goAllenamento').addEventListener('click', () => setMenuView('allenamento'));
   if(q('goGara')) q('goGara').addEventListener('click', () => setMenuView('gara'));
   if(q('backHome')) q('backHome').addEventListener('click', () => setMenuView('home'));
-  if(q('topicSel')){
-    q('startPraticaBtn').addEventListener('click', () => {
-      const ids = leggiArgomenti('topicSel'); if(!ids.length) return;
-      const sez = leggiSezioni('topicSel', ids); if(!sez) return;
-      menuTopics = ids; menuSezioni = sez; startPratica(ids, sez);
-    });
-  }
+  if(q('startPraticaBtn')) q('startPraticaBtn').addEventListener('click', () => {
+    startPratica(ORDER.filter(id => topicVisibile(id, 'allenamento')));
+  });
   if(q('livelloSel')) q('livelloSel').addEventListener('change', e => { praticaLivello = e.target.value; });
   if(q('joinGaraBtn')) q('joinGaraBtn').addEventListener('click', () => {
     const input = q('nomeInput');
@@ -1117,7 +1128,7 @@ function startGuida(scelta, nomeNoto, sez){
   setFooterVisible(false);
   presStart(nome, topicId, 'guida');
   sez = Object.assign({}, sez || {});
-  topicIds.forEach(t => { if(!sez[t] && sezioniVisibili(t).length < sezioniDi(t).length) sez[t] = sezioniVisibili(t).map(x => x.id); });
+  topicIds.forEach(t => { if(!sez[t] && sezioniVisibili(t, 'guidami').length < sezioniDi(t).length) sez[t] = sezioniVisibili(t, 'guidami').map(x => x.id); });
   guidaCtx = { topicId, topicIds, indice: 0, nome, sezioni: sez, catPermesse: categoriePermesse(sez) };
   presGuida(0, 0, 0);
   setModeLabel(topicTitle(topicId) + ' · Guidami');
@@ -1733,7 +1744,7 @@ function renderTeacherPanel(){
       <div class="tgrid">
         <button class="ttile" id="tileGara"><span class="ti">🏁</span><b>Gara</b><span>Argomento, numero e durata delle manches, tutti contro tutti o a squadre.</span></button>
         <a class="ttile" href="mosaico.html" target="_blank" rel="noopener"><span class="ti">📊</span><b>Vista alunni</b><span>Esercitazione, classifica live e report. Si apre in una nuova scheda.</span></a>
-        <button class="ttile" id="tileArgomenti"><span class="ti">📚</span><b>Argomenti</b><span>Scegli argomenti e sezioni del libro visibili agli alunni.</span></button>
+        <button class="ttile" id="tileArgomenti"><span class="ti">📚</span><b>Argomenti</b><span>Scegli argomenti e sezioni per Allenamento e Guidami.</span></button>
         <button class="ttile" id="tileArchivio"><span class="ti">🗂️</span><b>Archivio gare</b><span>Tutte le gare svolte: classifiche, squadre, CSV.</span></button>
         <button class="ttile" id="tilePulizia"><span class="ti">🧹</span><b>Pulizia dati</b><span>Cancella i risultati delle gare e le presenze.</span></button>
       </div>
@@ -2058,52 +2069,81 @@ function garaPartecipanti(){
   garaStato();
 }
 
-// ---------- Argomenti e sezioni visibili agli alunni ----------
+// ---------- Argomenti e sezioni per Allenamento e Guidami (li sceglie solo il docente) ----------
 function renderTeacherArgomenti(){
   stopAll();
   state = null; updateScore(); renderHud('none'); setModeLabel('docente · argomenti');
-  const nasc = VISIBILI.nascosti || [], snasc = VISIBILI.sezioniNascoste || {};
-  const blocchi = ORDER.map(id => {
-    const secs = sezioniDi(id);
-    return `<div class="tcard va-card">
-      <label class="tp"><input type="checkbox" class="va-t" value="${U.esc(id)}"${nasc.indexOf(id) < 0 ? ' checked' : ''}><span>${U.esc(TOPICS[id].titolo)}</span></label>
-      ${secs.length ? `<div class="va-secs">${secs.map(x => `<label class="ts"><input type="checkbox" class="va-s" data-t="${U.esc(id)}" value="${U.esc(x.id)}"${(snasc[id] || []).indexOf(x.id) < 0 ? ' checked' : ''}><span><b>${U.esc(x.id)}</b> ${U.esc(x.titolo)}</span></label>`).join('')}</div>` : ''}
-    </div>`;
-  }).join('');
+  const copia = v => ({ nascosti: (v.nascosti || []).slice(), sezioniNascoste: JSON.parse(JSON.stringify(v.sezioniNascoste || {})) });
+  const bozza = { allenamento: copia(vis('allenamento')), guidami: copia(vis('guidami')) };
+  let modo = 'allenamento';
   panel.innerHTML = `
     <div class="center-screen has-back">
       <button class="backlink" id="vaBack" aria-label="Torna al cruscotto">← Cruscotto</button>
-      <h2>Argomenti visibili</h2>
-      <div class="board-note">Gli alunni vedono in Guidami e Allenamento solo gli argomenti e le sezioni spuntati. Per la gara puoi scegliere tu qualunque sezione.</div>
-      <div class="tgara-body">${blocchi}</div>
-      <div class="trow"><button class="startbtn" id="vaSalva">Salva</button></div>
+      <h2>Argomenti</h2>
+      <div class="board-note">Scegli argomenti e sezioni che gli alunni troveranno in Allenamento e in Guidami. Gli alunni li vedono ma non possono cambiarli. La gara si imposta dalla piastrella Gara.</div>
+      <div class="seg" role="tablist">
+        <label><input type="radio" name="vaModo" value="allenamento" checked><span>Allenamento</span></label>
+        <label><input type="radio" name="vaModo" value="guidami"><span>Guidami</span></label>
+      </div>
+      <div class="tgara-body" id="vaBody"></div>
+      <div class="trow">
+        <button class="ghostbtn small" id="vaCopia"></button>
+        <button class="startbtn" id="vaSalva">Salva</button>
+      </div>
       <div class="board-note" id="vaNote"></div>
     </div>`;
-  document.getElementById('vaBack').addEventListener('click', renderTeacherPanel);
-  // togliere tutte le sezioni = nascondere l'argomento; spuntare una sezione lo rende visibile
-  panel.querySelectorAll('.va-s').forEach(c => c.addEventListener('change', () => {
-    const id = c.getAttribute('data-t'), t = panel.querySelector(`.va-t[value="${id}"]`);
-    if(c.checked) t.checked = true;
-    else if(!panel.querySelector(`.va-s[data-t="${id}"]:checked`)) t.checked = false;
-  }));
-  panel.querySelectorAll('.va-t').forEach(t => t.addEventListener('change', () => {
-    if(t.checked && !panel.querySelector(`.va-s[data-t="${t.value}"]:checked`)) panel.querySelectorAll(`.va-s[data-t="${t.value}"]`).forEach(c => { c.checked = true; });
-  }));
-  document.getElementById('vaSalva').addEventListener('click', async () => {
-    const nascosti = Array.from(panel.querySelectorAll('.va-t')).filter(t => !t.checked).map(t => t.value);
-    const sezioniNascoste = {};
+  const body = document.getElementById('vaBody');
+  const leggi = () => {   // dalla pagina alla bozza del modo corrente
+    const v = bozza[modo];
+    v.nascosti = Array.from(body.querySelectorAll('.va-t')).filter(t => !t.checked).map(t => t.value);
+    v.sezioniNascoste = {};
     ORDER.forEach(id => {
-      const off = Array.from(panel.querySelectorAll(`.va-s[data-t="${id}"]`)).filter(c => !c.checked).map(c => c.value);
-      if(off.length) sezioniNascoste[id] = off;
+      const off = Array.from(body.querySelectorAll(`.va-s[data-t="${id}"]`)).filter(c => !c.checked).map(c => c.value);
+      if(off.length) v.sezioniNascoste[id] = off;
     });
+  };
+  const disegna = () => {
+    const v = bozza[modo];
+    const ids = modo === 'guidami' ? ORDER.filter(id => TOPICS[id].guida) : ORDER;
+    body.innerHTML = ids.map(id => {
+      const secs = sezioniDi(id);
+      return `<div class="tcard va-card">
+        <label class="tp"><input type="checkbox" class="va-t" value="${U.esc(id)}"${v.nascosti.indexOf(id) < 0 ? ' checked' : ''}><span>${U.esc(TOPICS[id].titolo)}</span></label>
+        ${secs.length ? `<div class="va-secs">${secs.map(x => `<label class="ts"><input type="checkbox" class="va-s" data-t="${U.esc(id)}" value="${U.esc(x.id)}"${(v.sezioniNascoste[id] || []).indexOf(x.id) < 0 ? ' checked' : ''}><span><b>${U.esc(x.id)}</b> ${U.esc(x.titolo)}</span></label>`).join('')}</div>` : ''}
+      </div>`;
+    }).join('');
+    // togliere tutte le sezioni = nascondere l'argomento; spuntare una sezione lo rende visibile
+    body.querySelectorAll('.va-s').forEach(c => c.addEventListener('change', () => {
+      const id = c.getAttribute('data-t'), t = body.querySelector(`.va-t[value="${id}"]`);
+      if(c.checked) t.checked = true;
+      else if(!body.querySelector(`.va-s[data-t="${id}"]:checked`)) t.checked = false;
+    }));
+    body.querySelectorAll('.va-t').forEach(t => t.addEventListener('change', () => {
+      if(t.checked && !body.querySelector(`.va-s[data-t="${t.value}"]:checked`)) body.querySelectorAll(`.va-s[data-t="${t.value}"]`).forEach(c => { c.checked = true; });
+    }));
+    document.getElementById('vaCopia').textContent = modo === 'guidami' ? 'Copia la scelta di Allenamento' : 'Copia la scelta di Guidami';
+  };
+  panel.querySelectorAll('input[name="vaModo"]').forEach(r => r.addEventListener('change', () => { leggi(); modo = r.value; disegna(); }));
+  document.getElementById('vaCopia').addEventListener('click', () => {
+    const altro = modo === 'guidami' ? 'allenamento' : 'guidami';
+    leggi(); bozza[altro] && (bozza[modo] = copia(bozza[altro])); disegna();
+  });
+  document.getElementById('vaBack').addEventListener('click', renderTeacherPanel);
+  document.getElementById('vaSalva').addEventListener('click', async () => {
+    leggi();
     const note = document.getElementById('vaNote');
-    if(nascosti.length === ORDER.length){ note.className = 'board-note err'; note.textContent = 'Lascia visibile almeno un argomento.'; return; }
+    const nessuno = m => (m === 'guidami' ? ORDER.filter(id => TOPICS[id].guida) : ORDER).every(id => bozza[m].nascosti.indexOf(id) > -1);
+    if(nessuno('allenamento') || nessuno('guidami')){ note.className = 'board-note err'; note.textContent = 'Lascia visibile almeno un argomento sia in Allenamento sia in Guidami.'; return; }
     try{
-      await db.collection('config').doc('argomenti').set({ nascosti, sezioniNascoste, aggiornato: Date.now() });
-      VISIBILI = { nascosti, sezioniNascoste };
+      await db.collection('config').doc('argomenti').set({
+        nascosti: bozza.allenamento.nascosti, sezioniNascoste: bozza.allenamento.sezioniNascoste,   // compatibilità
+        allenamento: bozza.allenamento, guidami: bozza.guidami, aggiornato: Date.now()
+      });
+      VISIBILI = { allenamento: copia(bozza.allenamento), guidami: copia(bozza.guidami) };
       note.className = 'board-note'; note.textContent = 'Salvato: gli alunni vedono subito la nuova scelta.';
     }catch(e){ console.error(e); note.className = 'board-note err'; note.textContent = 'Salvataggio non riuscito: controlla connessione e regole Firestore.'; }
   });
+  disegna();
 }
 
 // ---------- Archivio gare (collezione "gare": una scheda per gara) ----------
@@ -2277,8 +2317,7 @@ function avvia(){
   // argomenti e sezioni visibili agli alunni (scelti dal docente nel cruscotto)
   if(db){
     db.collection('config').doc('argomenti').onSnapshot(snap => {
-      const d = snap.exists ? snap.data() : null;
-      VISIBILI = { nascosti: (d && d.nascosti) || [], sezioniNascoste: (d && d.sezioniNascoste) || {} };
+      impostaVisibili(snap.exists ? snap.data() : null);
       // se l'alunno è su un menu, lo si ridisegna conservando il nome già scritto
       if(!state && !garaCtx && !teacherCtx && !guidaCtx && document.querySelector('#panel .menu')){
         const inp = document.getElementById('nomeInput'), v = inp ? inp.value : null;
@@ -2293,5 +2332,5 @@ function avvia(){
   renderMenu();
 }
 
-window.Palestra = { registraArgomento, utils: U, avvia, _topics: TOPICS };
+window.Palestra = { registraArgomento, utils: U, avvia, _topics: TOPICS, _visibili: impostaVisibili };
 })();

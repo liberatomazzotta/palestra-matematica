@@ -49,7 +49,7 @@ Se i Chromebook della scuola bloccano `github.io`, usa **Firebase Hosting** (`we
 
 ## Uso in classe
 
-In Guidami, Allenamento e nell'impostazione della gara si possono spuntare **uno o più argomenti**: le domande (o gli esercizi guidati) si alternano tra gli argomenti scelti; report, ripasso mirato e statistiche restano separati per argomento.
+**L'alunno non sceglie**: in Guidami e Allenamento vede (senza spunte) gli argomenti e i sottoargomenti decisi dal docente e preme solo "Inizia". Il docente può scegliere **uno o più argomenti**: le domande (o gli esercizi guidati) si alternano tra gli argomenti scelti; report, ripasso mirato e statistiche restano separati per argomento.
 
 1. Alunni: aprono il link, scrivono Cognome e Nome, scelgono **Allenamento** (poi argomento da elenco a discesa e livello) oppure **Gara**.
 2. Docente: link **Cruscotto docente** in fondo alla home → codice → piastrella **Gara** → scegli argomento, numero di manches (1–5), durata (1–5 minuti) e tipo: **tutti contro tutti** o **a squadre** (2–6 squadre) → **Crea la gara**.
@@ -59,9 +59,9 @@ In Guidami, Allenamento e nell'impostazione della gara si possono spuntare **uno
 
 Il cruscotto ha cinque piastrelle: **Gara**, **Vista alunni** (si apre in una nuova scheda), **Argomenti**, **Archivio gare**, **Pulizia dati**.
 
-**Sezioni del libro**: ogni argomento segue l'indice del libro in adozione (La divisibilità 4.1–4.12, Le frazioni 5.1–5.11, Il teorema di Pitagora 2.1–2.12). In Guidami, Allenamento e Gara, accanto a ogni argomento c'è "Tutte le sezioni ▾" per scegliere solo alcune sezioni. I tipi di esercizio nel report e nel ripasso riportano il numero di sezione (es. "4.5 Scomposizione in fattori primi").
+**Sezioni del libro**: ogni argomento segue l'indice del libro in adozione (La divisibilità 4.1–4.12, Le frazioni 5.1–5.11, Il teorema di Pitagora 2.1–2.12). Le sezioni si scelgono dal cruscotto: nella piastrella Argomenti (per Allenamento e Guidami) e nella piastrella Gara. I tipi di esercizio nel report e nel ripasso riportano il numero di sezione (es. "4.5 Scomposizione in fattori primi").
 
-**Argomenti** (cruscotto): il docente spunta gli argomenti e le sezioni che gli alunni vedono in Guidami e Allenamento (le sezioni non ancora trattate restano nascoste). La scelta è salvata in Firestore (`config/argomenti`) e la home degli alunni si aggiorna da sola. Per la gara il docente può scegliere qualunque sezione.
+**Argomenti** (cruscotto): il docente spunta argomenti e sezioni **separatamente per Allenamento e per Guidami** (schede in alto; il pulsante "Copia" riporta la scelta da una scheda all'altra). Gli alunni vedono solo quella scelta, in sola lettura. La scelta è salvata in Firestore (`config/argomenti`) e la home degli alunni si aggiorna da sola. Per la gara il docente può scegliere qualunque sezione.
 
 **Archivio gare**: ogni gara ha una scheda (collezione `gare`) con data, argomenti, manches giocate, squadre e classifica finale (individuale e a squadre), aggiornata alla fine di ogni manche e prima di creare una nuova gara. Dalla scheda: **Scarica CSV** o **Elimina dall'archivio**. La pulizia dei risultati non tocca l'archivio; c'è un comando apposito per svuotarlo.
 
@@ -143,7 +143,7 @@ Risposte a frazione: tipo `frazione` con `corretta: [numeratore, denominatore]` 
 
 Nota: la riga `<script src="argomenti/....js">` va aggiunta sia in `index.html` sia in `mosaico.html` (alla vista alunni servono titoli e nomi delle categorie). Per il report, ogni domanda può indicare `categoria: 'id'` e l'argomento l'elenco `categorie: { id: 'Nome leggibile' }`; negli esercizi di Guidami la `categoria` va sull'esercizio.
 
-1. Copia `argomenti/mcd-mcm.js` in un nuovo file (es. `argomenti/frazioni.js`).
+1. Copia `argomenti/divisibilita.js` in un nuovo file (es. `argomenti/frazioni.js`).
 2. Cambia `id`, `titolo`, `descrizione` e scrivi `generaDomanda(livello, indice)`.
    Tipi di domanda già pronti: `scelta` (vero/falso o scelta multipla), `numerica` (risposta con un numero),
    `personalizzata` (disegna lei l'interfaccia, come l'albero dei fattori primi).

@@ -491,3 +491,8 @@ a.backlink{text-decoration:none;display:inline-flex;align-items:center;}
 .tp-list[hidden]{display:none;}
 .va-card > .tp{display:flex;gap:10px;align-items:center;font-weight:700;font-size:15px;cursor:pointer;color:var(--yellow);}
 .va-card > .tp input{width:18px;height:18px;accent-color:var(--blue);margin:0;}
+/* argomenti scelti dal docente, in sola lettura per l'alunno */
+.topicpick.sola-lettura{gap:6px;}
+.tp-ro{display:flex;flex-direction:column;gap:2px;padding:9px 12px;border-radius:10px;border:1px solid var(--line);background:var(--board-dark);text-align:left;}
+.tp-ro b{color:var(--chalk);font-size:14px;}
+.tp-ro ul{margin:4px 0 0;padding-left:18px;font-size:12.5px;color:var(--chalk-dim);line-height:1.45;}
