@@ -157,7 +157,12 @@ function fase(d, now){
   info.startAt = d.startAt; info.duration = dur;
   if(now < d.startAt){ info.phase = 'countdown'; info.remaining = d.startAt - now; }
   else if(now < d.startAt + dur){ info.phase = 'running'; info.remaining = d.startAt + dur - now; }
-  else info.phase = 'finished';
+  else {
+    info.phase = 'finished';
+    // manche finita da tempo senza punteggi, o gara vecchia (più di 3 ore): nessuna gara in corso
+    const fine = d.startAt + dur;
+    if((now - fine > 60000 && !scoreDocs.size) || now - fine > 3 * 3600 * 1000) return { phase: 'nogara' };
+  }
   return info;
 }
 function nManche(){ return Math.max(1, Math.min(10, Number(gameState && gameState.nManche) || 3)); }
@@ -221,7 +226,7 @@ function mmss(ms){ const s = Math.max(0, Math.ceil(ms / 1000)); return String(Ma
 function renderGara(){
   const now = Date.now();
   const f = fase(gameState, now);
-  if(f.phase === 'nogara') return { bar: '', body: '<div class="empty-board">Nessuna gara creata. Creala dal Cruscotto docente.</div>' };
+  if(f.phase === 'nogara') return { bar: '', body: '<div class="empty-board">Nessuna gara in corso. Creala dal Cruscotto docente.</div>' };
   const titolo = f.manche ? `Manche ${f.manche} di ${nManche()}` : 'Gara pronta';
   if(f.phase === 'idle') return { bar: `<span>${titolo}</span>`, body: '<div class="empty-board">In attesa dell\'avvio della manche.</div>' + (scoreDocs.size ? tableGenerale() : '') };
   if(f.phase === 'countdown') return { bar: `<span>${titolo} · via tra <b>${Math.ceil(f.remaining / 1000)}</b></span>`, body: '<div class="empty-board" style="font-size:42px;">Pronti…</div>' };
@@ -252,7 +257,8 @@ function renderGara(){
   }
   // finished: classifica manche + generale
   const tab = tableManche(f.manche) + tableGenerale();
-  return { bar: `<span>${titolo} conclusa</span>`, body: tab ? `<div class="mcols">${tab}</div>` : '<div class="empty-board">Nessun punteggio registrato in questa manche.</div>' };
+  const ultima = f.manche >= nManche();
+  return { bar: `<span>${ultima ? 'Gara conclusa' : titolo + ' conclusa'}</span>`, body: tab ? `<div class="mcols">${tab}</div>` : '<div class="empty-board">Nessun punteggio registrato in questa manche.</div>' };
 }
 
 // ---- Report per alunno ----
