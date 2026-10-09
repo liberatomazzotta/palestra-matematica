@@ -113,7 +113,29 @@ function setScoreVisible(v){
 function updateScore(){ scoreEl.textContent = state ? state.score : 0; }
 function setModeLabel(t){ modeLabelEl.textContent = t || ''; }
 function nameKey(n){ return String(n || '').trim().replace(/\s+/g, ' ').toLowerCase(); }
-function nomeCategoria(topicId, c){ const t = TOPICS[topicId]; return (t && t.categorie && t.categorie[c]) || c; }
+// ---------- sezioni del libro e argomenti visibili agli alunni ----------
+// Un argomento può dichiarare  sezioni: [{ id: '4.5', titolo: 'Scomposizione…', categorie: ['scomp'] }, …]
+let VISIBILI = { nascosti: [], sezioniNascoste: {} };   // deciso dal docente (Firestore: config/argomenti)
+function sezioniDi(id){ return (TOPICS[id] && TOPICS[id].sezioni) || []; }
+function sezioniVisibili(id){ const h = (VISIBILI.sezioniNascoste || {})[id] || []; return sezioniDi(id).filter(x => h.indexOf(x.id) < 0); }
+function topicVisibile(id){ return (VISIBILI.nascosti || []).indexOf(id) < 0 && (!sezioniDi(id).length || sezioniVisibili(id).length > 0); }
+function categorieSezioni(id, secIds){
+  const out = [];
+  sezioniDi(id).forEach(x => { if(secIds.indexOf(x.id) > -1) x.categorie.forEach(c => { if(out.indexOf(c) < 0) out.push(c); }); });
+  return out;
+}
+// mappa { argomento: [id sezioni] } → { argomento: [categorie permesse] }
+function categoriePermesse(sez){
+  const out = {};
+  Object.keys(sez || {}).forEach(t => { const c = categorieSezioni(t, sez[t] || []); if(c.length) out[t] = c; });
+  return Object.keys(out).length ? out : null;
+}
+function nomeCategoria(topicId, c){
+  const t = TOPICS[topicId];
+  const nome = (t && t.categorie && t.categorie[c]) || c;
+  const sec = sezioniDi(topicId).find(x => x.categorie.indexOf(c) > -1);
+  return sec ? sec.id + ' ' + nome : nome;
+}
 // Più argomenti insieme: gli id si uniscono con "+" (es. "fattori-primi+pitagora")
 function listaTopic(x){ return (Array.isArray(x) ? x : String(x || '').split('+')).filter(id => TOPICS[id]); }
 function chiaveTopic(ids){ return listaTopic(ids).join('+'); }
@@ -405,18 +427,80 @@ function mascotteSezione(tipo){
 // ================= MENU =================
 let menuTopics = [];     // ultimi argomenti scelti nel menu (anche più d'uno)
 // Caselle di spunta per scegliere uno o più argomenti
-function sceltaArgomenti(ids, idGruppo){
+let menuSezioni = {};     // ultime sezioni scelte { argomento: [id sezioni] } (solo se non tutte)
+// opt.tutte = true: mostra tutte le sezioni (cruscotto), altrimenti solo quelle visibili agli alunni
+function sceltaArgomenti(ids, idGruppo, opt){
+  opt = opt || {};
   const scelti = menuTopics.filter(id => ids.indexOf(id) > -1);
   const pre = scelti.length ? scelti : ids.slice(0, 1);
+  const sezPre = opt.sezioni || menuSezioni;
+  const righe = ids.map(id => {
+    const secs = opt.tutte ? sezioniDi(id) : sezioniVisibili(id);
+    const scelteSez = sezPre[id] && sezPre[id].length ? sezPre[id] : secs.map(x => x.id);
+    const lista = secs.length ? `
+      <div class="tp-list" data-t="${U.esc(id)}" hidden>
+        ${secs.map(x => `<label class="ts"><input type="checkbox" class="ts-in" data-t="${U.esc(id)}" value="${U.esc(x.id)}"${scelteSez.indexOf(x.id) > -1 ? ' checked' : ''}><span><b>${U.esc(x.id)}</b> ${U.esc(x.titolo)}</span></label>`).join('')}
+        <div class="ts-act"><button type="button" class="ghostbtn small" data-tutte="${U.esc(id)}">Tutte</button><button type="button" class="ghostbtn small" data-nessuna="${U.esc(id)}">Nessuna</button></div>
+      </div>` : '';
+    return `<div class="tp-wrap">
+      <div class="tp-row"><label class="tp"><input type="checkbox" class="tp-in" value="${U.esc(id)}"${pre.indexOf(id) > -1 ? ' checked' : ''}><span>${U.esc(TOPICS[id].titolo)}</span></label>
+      ${secs.length ? `<button type="button" class="tp-sez" data-t="${U.esc(id)}" aria-expanded="false"></button>` : ''}</div>${lista}</div>`;
+  }).join('');
   return `<div class="levelrow">Scegli uno o più argomenti
-    <div class="topicpick" id="${idGruppo}" role="group" aria-label="Argomenti">${ids.map(id => `<label class="tp"><input type="checkbox" value="${U.esc(id)}"${pre.indexOf(id) > -1 ? ' checked' : ''}><span>${U.esc(TOPICS[id].titolo)}</span></label>`).join('')}</div>
+    <div class="topicpick" id="${idGruppo}" role="group" aria-label="Argomenti">${righe}</div>
     <div class="board-note" id="${idGruppo}Note"></div></div>`;
 }
+// collega i pulsanti "Sezioni" (apri/chiudi, tutte/nessuna, conteggio)
+function attivaSceltaArgomenti(idGruppo){
+  const box = document.getElementById(idGruppo);
+  if(!box) return;
+  const etichetta = id => {
+    const b = box.querySelector(`.tp-sez[data-t="${id}"]`); if(!b) return;
+    const tutte = box.querySelectorAll(`.ts-in[data-t="${id}"]`), sc = box.querySelectorAll(`.ts-in[data-t="${id}"]:checked`);
+    b.textContent = (sc.length === tutte.length ? 'Tutte le sezioni' : `Sezioni: ${sc.length} di ${tutte.length}`) + (b.getAttribute('aria-expanded') === 'true' ? ' ▴' : ' ▾');
+  };
+  box.querySelectorAll('.tp-sez').forEach(b => {
+    const id = b.getAttribute('data-t');
+    etichetta(id);
+    b.addEventListener('click', () => {
+      const l = box.querySelector(`.tp-list[data-t="${id}"]`);
+      l.hidden = !l.hidden; b.setAttribute('aria-expanded', String(!l.hidden)); etichetta(id);
+    });
+  });
+  box.querySelectorAll('.ts-in').forEach(c => c.addEventListener('change', () => {
+    const id = c.getAttribute('data-t');
+    const t = box.querySelector(`.tp-in[value="${id}"]`);
+    if(c.checked && t) t.checked = true;   // scegliere una sezione sceglie anche l'argomento
+    etichetta(id);
+  }));
+  box.querySelectorAll('[data-tutte], [data-nessuna]').forEach(b => b.addEventListener('click', () => {
+    const id = b.getAttribute('data-tutte') || b.getAttribute('data-nessuna'), on = b.hasAttribute('data-tutte');
+    box.querySelectorAll(`.ts-in[data-t="${id}"]`).forEach(c => { c.checked = on; });
+    const t = box.querySelector(`.tp-in[value="${id}"]`); if(t && on) t.checked = true;
+    etichetta(id);
+  }));
+}
 function leggiArgomenti(idGruppo){
-  const ids = Array.from(document.querySelectorAll('#' + idGruppo + ' input:checked')).map(x => x.value);
+  const ids = Array.from(document.querySelectorAll('#' + idGruppo + ' input.tp-in:checked')).map(x => x.value);
   const n = document.getElementById(idGruppo + 'Note');
   if(!ids.length && n){ n.className = 'board-note err'; n.textContent = 'Scegli almeno un argomento.'; }
   return ids;
+}
+// { argomento: [sezioni scelte] } solo per gli argomenti in cui non sono scelte tutte; null se un argomento non ha sezioni scelte
+function leggiSezioni(idGruppo, ids){
+  const out = {};
+  for(const id of ids){
+    const tutte = document.querySelectorAll(`#${idGruppo} .ts-in[data-t="${id}"]`);
+    if(!tutte.length) continue;
+    const sc = Array.from(document.querySelectorAll(`#${idGruppo} .ts-in[data-t="${id}"]:checked`)).map(x => x.value);
+    if(!sc.length){
+      const n = document.getElementById(idGruppo + 'Note');
+      if(n){ n.className = 'board-note err'; n.textContent = `Scegli almeno una sezione di «${TOPICS[id].titolo}».`; }
+      return null;
+    }
+    if(sc.length < sezioniDi(id).length) out[id] = sc;
+  }
+  return out;
 }
 let menuView = 'home';   // 'home' | 'guidami' | 'allenamento' | 'gara'
 function renderMenu(){ menuView = 'home'; drawMenu(); }
@@ -446,7 +530,7 @@ function drawMenu(){
   let corpo;
 
   if(menuView === 'guidami'){
-    const idG = ORDER.filter(id => TOPICS[id].guida);
+    const idG = ORDER.filter(id => TOPICS[id].guida && topicVisibile(id));
     corpo = `
       ${mascotteSezione('guidami')}
       <div class="section-title">Guidami</div>
@@ -460,7 +544,7 @@ function drawMenu(){
       <div class="section-title">Allenamento</div>
       <div class="section-sub">Esercitati in completa autonomia: nessun aiuto. Te la devi cavare da solo!</div>
       ${ORDER.length ? `
-      ${sceltaArgomenti(ORDER, 'topicSel')}
+      ${sceltaArgomenti(ORDER.filter(topicVisibile), 'topicSel')}
       <label class="levelrow">Scegli il livello
         <select class="sel" id="livelloSel">${livelli.map(l => `<option value="${l[0]}"${String(praticaLivello) === l[0] ? ' selected' : ''}>${l[1]}</option>`).join('')}</select>
       </label>
@@ -499,10 +583,12 @@ function drawMenu(){
   panel.innerHTML = `<div class="menu">${html}</div>`;
 
   const q = id => document.getElementById(id);
+  attivaSceltaArgomenti('topicSel'); attivaSceltaArgomenti('topicSelG');
   if(q('goGuida')) q('goGuida').addEventListener('click', () => setMenuView('guidami'));
   if(q('startGuidaBtn')) q('startGuidaBtn').addEventListener('click', () => {
     const ids = leggiArgomenti('topicSelG'); if(!ids.length) return;
-    menuTopics = ids; startGuida(ids);
+    const sez = leggiSezioni('topicSelG', ids); if(!sez) return;
+    menuTopics = ids; menuSezioni = sez; startGuida(ids, null, sez);
   });
   if(q('goAllenamento')) q('goAllenamento').addEventListener('click', () => setMenuView('allenamento'));
   if(q('goGara')) q('goGara').addEventListener('click', () => setMenuView('gara'));
@@ -510,7 +596,8 @@ function drawMenu(){
   if(q('topicSel')){
     q('startPraticaBtn').addEventListener('click', () => {
       const ids = leggiArgomenti('topicSel'); if(!ids.length) return;
-      menuTopics = ids; startPratica(ids);
+      const sez = leggiSezioni('topicSel', ids); if(!sez) return;
+      menuTopics = ids; menuSezioni = sez; startPratica(ids, sez);
     });
   }
   if(q('livelloSel')) q('livelloSel').addEventListener('change', e => { praticaLivello = e.target.value; });
@@ -663,8 +750,11 @@ function liveStop(final){
 }
 
 // ================= ESERCITAZIONE =================
-function startPratica(scelta){
-  const topicIds = listaTopic(scelta), topicId = topicIds.join('+');
+function startPratica(scelta, sez){
+  const topicIds = listaTopic(scelta).filter(id => topicVisibile(id) || !sezioniDi(id).length), topicId = topicIds.join('+');
+  // per gli alunni le sezioni nascoste dal docente non escono mai
+  sez = Object.assign({}, sez || {});
+  topicIds.forEach(t => { if(!sez[t] && sezioniVisibili(t).length < sezioniDi(t).length) sez[t] = sezioniVisibili(t).map(x => x.id); });
   const inp = document.getElementById('nomeInput');
   let nome = inp ? inp.value.trim() : '';
   if(!inp){ try{ nome = localStorage.getItem('palestra_nome') || ''; }catch(e){} }
@@ -679,7 +769,7 @@ function startPratica(scelta){
   if(!topicIds.length) return;
   setFooterVisible(false);
   state = {
-    mode: 'pratica', topicId, topicIds, idx: {},
+    mode: 'pratica', topicId, topicIds, idx: {}, sezioni: sez, catPermesse: categoriePermesse(sez),
     fixedLevel: praticaLivello === 'auto' ? 0 : Number(praticaLivello),
     score: 0, askedCount: 0, correctCount: 0, wrongCount: 0,
     elapsedSeconds: 0, current: null, over: false,
@@ -732,7 +822,8 @@ function endPractice(){
         <button class="ghostbtn" id="menuBtn">Torna al menu</button>
       </div>
     </div>`;
-  document.getElementById('againBtn').addEventListener('click', () => startPratica(topicIds || topicId));
+  const sezPrima = state.sezioni;
+  document.getElementById('againBtn').addEventListener('click', () => startPratica(topicIds || topicId, sezPrima));
   document.getElementById('menuBtn').addEventListener('click', renderMenu);
 }
 
@@ -756,7 +847,10 @@ function nextQuestion(){
       // più argomenti: si alternano, ognuno con il suo contatore (così ogni argomento ruota i suoi tipi)
       const t = ids[state.askedCount % ids.length];
       const k = state.idx[t] || 0;
-      q = TOPICS[t].generaDomanda(livello, k);
+      const perm = state.catPermesse && state.catPermesse[t];
+      // sezioni scelte: si gira tra le loro categorie; altrimenti la rotazione normale dell'argomento
+      q = perm ? domandaDiCategoria(TOPICS[t], perm[k % perm.length], livello) : null;
+      if(!q) q = TOPICS[t].generaDomanda(livello, k);
       q._topic = t;
       state.idx[t] = k + 1;
       state.normaliDaRipasso += 1;
@@ -996,7 +1090,7 @@ function mostraNumerica(q, area, ctx){
 //   guida: { teoria: 'HTML', generaEsercizio(indice) -> { titolo, testo, passi:[...], conclusione } }
 //   passo: { testo, tipo:'scelta'|'numerica', opzioni, corretta, suggerimento, spiegazione }
 let guidaCtx = null;
-function startGuida(scelta, nomeNoto){
+function startGuida(scelta, nomeNoto, sez){
   const topicIds = listaTopic(scelta).filter(id => TOPICS[id].guida), topicId = topicIds.join('+');
   const inp = document.getElementById('nomeInput');
   let nome = inp ? inp.value.trim() : (nomeNoto || '');
@@ -1013,7 +1107,9 @@ function startGuida(scelta, nomeNoto){
   setScoreVisible(false);
   setFooterVisible(false);
   presStart(nome, topicId, 'guida');
-  guidaCtx = { topicId, topicIds, indice: 0, nome };
+  sez = Object.assign({}, sez || {});
+  topicIds.forEach(t => { if(!sez[t] && sezioniVisibili(t).length < sezioniDi(t).length) sez[t] = sezioniVisibili(t).map(x => x.id); });
+  guidaCtx = { topicId, topicIds, indice: 0, nome, sezioni: sez, catPermesse: categoriePermesse(sez) };
   presGuida(0, 0, 0);
   setModeLabel(topicTitle(topicId) + ' · Guidami');
   const teoria = topicIds.map(id => (topicIds.length > 1 ? `<div class="theory-head">${U.esc(TOPICS[id].titolo)}</div>` : '') + TOPICS[id].guida.teoria).join('<hr class="theory-sep">');
@@ -1037,7 +1133,17 @@ function guidaEsercizio(){
   const tId = g.topicIds[g.indice % g.topicIds.length];
   const t = TOPICS[tId];
   let es;
-  try{ es = t.guida.generaEsercizio(Math.floor(g.indice / g.topicIds.length)); }
+  try{
+    // con sezioni scelte si cercano esercizi guidati delle loro categorie (se l'argomento non ne ha, va bene qualunque)
+    const perm = g.catPermesse && g.catPermesse[tId];
+    const base = Math.floor(g.indice / g.topicIds.length);
+    for(let tent = 0; tent < 12; tent++){
+      es = t.guida.generaEsercizio(base + tent);
+      if(!perm || perm.indexOf(es.categoria) > -1) break;
+      es = null;
+    }
+    if(!es) es = t.guida.generaEsercizio(base);
+  }
   catch(e){ console.error(e); renderMsg('Errore', 'Impossibile generare l\'esercizio.', { err: true }); return; }
   g.indice += 1;
   let i = 0;
@@ -1105,8 +1211,8 @@ function guidaEsercizio(){
         </div>
       </div>`;
     document.getElementById('gAltro').addEventListener('click', guidaEsercizio);
-    document.getElementById('gTeoria').addEventListener('click', () => startGuida(g.topicIds, g.nome));
-    document.getElementById('gAllena').addEventListener('click', () => { menuTopics = g.topicIds.slice(); setMenuView('allenamento'); });
+    document.getElementById('gTeoria').addEventListener('click', () => startGuida(g.topicIds, g.nome, g.sezioni));
+    document.getElementById('gAllena').addEventListener('click', () => { menuTopics = g.topicIds.slice(); menuSezioni = Object.assign({}, g.sezioni); setMenuView('allenamento'); });
     document.getElementById('gMenu').addEventListener('click', renderMenu);
   }
   disegna();
@@ -1304,7 +1410,7 @@ function beginGara(info, rk){
     return;
   }
   state = {
-    mode: 'gara', topicId: info.topic, topicIds: garaIds, idx: {}, sessionId: info.sessionId, manche: info.manche, runKey: rk,
+    mode: 'gara', topicId: info.topic, topicIds: garaIds, idx: {}, catPermesse: categoriePermesse(garaCtx && garaCtx.data && garaCtx.data.sezioni), sessionId: info.sessionId, manche: info.manche, runKey: rk,
     name: garaCtx.name, score: 0, askedCount: 0, correctCount: 0, wrongCount: 0,
     current: null, over: false, endAt: info.startAt + info.duration, duration: info.duration
   };
@@ -1618,6 +1724,7 @@ function renderTeacherPanel(){
       <div class="tgrid">
         <button class="ttile" id="tileGara"><span class="ti">🏁</span><b>Gara</b><span>Argomento, numero e durata delle manches, tutti contro tutti o a squadre.</span></button>
         <a class="ttile" href="mosaico.html" target="_blank" rel="noopener"><span class="ti">📊</span><b>Vista alunni</b><span>Esercitazione, classifica live e report. Si apre in una nuova scheda.</span></a>
+        <button class="ttile" id="tileArgomenti"><span class="ti">📚</span><b>Argomenti</b><span>Scegli argomenti e sezioni del libro visibili agli alunni.</span></button>
         <button class="ttile" id="tileArchivio"><span class="ti">🗂️</span><b>Archivio gare</b><span>Tutte le gare svolte: classifiche, squadre, CSV.</span></button>
         <button class="ttile" id="tilePulizia"><span class="ti">🧹</span><b>Pulizia dati</b><span>Cancella i risultati delle gare e le presenze.</span></button>
       </div>
@@ -1629,6 +1736,7 @@ function renderTeacherPanel(){
   document.getElementById('tEsci').addEventListener('click', esciDocente);
   document.getElementById('tilePulizia').addEventListener('click', renderTeacherPulizia);
   document.getElementById('tileArchivio').addEventListener('click', renderTeacherArchivio);
+  document.getElementById('tileArgomenti').addEventListener('click', renderTeacherArgomenti);
 }
 
 // ---------- impostazioni e squadre ----------
@@ -1727,7 +1835,7 @@ function garaImpostazione(body){
   body.innerHTML = `
     <div class="tsec">
       <div class="tsec-title">Nuova gara</div>
-      ${(() => { const salva = menuTopics; menuTopics = listaTopic(prev.topic); const h = sceltaArgomenti(ORDER, 'sTopic'); menuTopics = salva; return h; })()}
+      ${(() => { const salva = menuTopics; menuTopics = listaTopic(prev.topic); const h = sceltaArgomenti(ORDER, 'sTopic', { tutte: true, sezioni: prev.sezioni || {} }); menuTopics = salva; return h; })()}
       <div class="tcols">
         <label class="levelrow">Numero di manches
           <select class="sel" id="sManche">${Array.from({ length: MAX_MANCHES }, (_, i) => i + 1).map(n => `<option value="${n}"${n === nPrev ? ' selected' : ''}>${n}</option>`).join('')}</select></label>
@@ -1749,6 +1857,7 @@ function garaImpostazione(body){
       </div>
     </div>`;
   const q = id => document.getElementById(id);
+  attivaSceltaArgomenti('sTopic');
   body.querySelectorAll('input[name="sModo"]').forEach(r => r.addEventListener('change', () => {
     const sq = body.querySelector('input[name="sModo"]:checked').value === 'squadre';
     q('sSqRow').hidden = !sq;
@@ -1760,6 +1869,8 @@ function garaImpostazione(body){
     if(cur && (cur.phase === 'running' || cur.phase === 'countdown') && !window.confirm('Una manche è in corso. Creare comunque una nuova gara?')) return;
     const argomenti = leggiArgomenti('sTopic');
     if(!argomenti.length) return;
+    const sezGara = leggiSezioni('sTopic', argomenti);
+    if(!sezGara) return;
     const modoSel = body.querySelector('input[name="sModo"]:checked').value;
     const n = Number(q('sSquadre').value);
     const teams = modoSel === 'squadre' ? SQUADRE.slice(0, n).map(x => ({ nome: x[0], colore: x[1], membri: [] })) : [];
@@ -1770,7 +1881,7 @@ function garaImpostazione(body){
       const nuova = {
         sessionId: Date.now(), topic: argomenti.join('+'), nManche: Number(q('sManche').value),
         manche: 0, startAt: null, duration: Number(q('sDurata').value) * 1000,
-        mode: modoSel, teams, updatedAt: Date.now()
+        mode: modoSel, teams, sezioni: sezGara, updatedAt: Date.now()
       };
       await db.collection('game').doc('state').set(nuova);
       archiviaGara(nuova, []).catch(e => console.warn('archivio non aggiornato', e));
@@ -1788,7 +1899,7 @@ function garaGestione(body){
     <div class="tsec">
       <div class="tsec-head">
         <div><div class="tsec-title">${U.esc(topicTitle(d.topic))}</div>
-        <div class="tsum">${n} ${n === 1 ? 'manche' : 'manches'} da ${durTxt} · ${aSquadre(d) ? d.teams.length + ' squadre' : 'tutti contro tutti'}</div></div>
+        <div class="tsum">${n} ${n === 1 ? 'manche' : 'manches'} da ${durTxt} · ${aSquadre(d) ? d.teams.length + ' squadre' : 'tutti contro tutti'}${d.sezioni && Object.keys(d.sezioni).length ? ' · sezioni ' + Object.keys(d.sezioni).map(t => d.sezioni[t].join(', ')).join('; ') : ''}</div></div>
         <button class="ghostbtn small" id="gNuova">Nuova gara</button>
       </div>
       <div class="gstato" id="gStato"></div>
@@ -1936,6 +2047,54 @@ function garaPartecipanti(){
     salva(copia().map(x => Object.assign(x, { membri: [] })));
   });
   garaStato();
+}
+
+// ---------- Argomenti e sezioni visibili agli alunni ----------
+function renderTeacherArgomenti(){
+  stopAll();
+  state = null; updateScore(); renderHud('none'); setModeLabel('docente · argomenti');
+  const nasc = VISIBILI.nascosti || [], snasc = VISIBILI.sezioniNascoste || {};
+  const blocchi = ORDER.map(id => {
+    const secs = sezioniDi(id);
+    return `<div class="tcard va-card">
+      <label class="tp"><input type="checkbox" class="va-t" value="${U.esc(id)}"${nasc.indexOf(id) < 0 ? ' checked' : ''}><span>${U.esc(TOPICS[id].titolo)}</span></label>
+      ${secs.length ? `<div class="va-secs">${secs.map(x => `<label class="ts"><input type="checkbox" class="va-s" data-t="${U.esc(id)}" value="${U.esc(x.id)}"${(snasc[id] || []).indexOf(x.id) < 0 ? ' checked' : ''}><span><b>${U.esc(x.id)}</b> ${U.esc(x.titolo)}</span></label>`).join('')}</div>` : ''}
+    </div>`;
+  }).join('');
+  panel.innerHTML = `
+    <div class="center-screen has-back">
+      <button class="backlink" id="vaBack" aria-label="Torna al cruscotto">← Cruscotto</button>
+      <h2>Argomenti visibili</h2>
+      <div class="board-note">Gli alunni vedono in Guidami e Allenamento solo gli argomenti e le sezioni spuntati. Per la gara puoi scegliere tu qualunque sezione.</div>
+      <div class="tgara-body">${blocchi}</div>
+      <div class="trow"><button class="startbtn" id="vaSalva">Salva</button></div>
+      <div class="board-note" id="vaNote"></div>
+    </div>`;
+  document.getElementById('vaBack').addEventListener('click', renderTeacherPanel);
+  // togliere tutte le sezioni = nascondere l'argomento; spuntare una sezione lo rende visibile
+  panel.querySelectorAll('.va-s').forEach(c => c.addEventListener('change', () => {
+    const id = c.getAttribute('data-t'), t = panel.querySelector(`.va-t[value="${id}"]`);
+    if(c.checked) t.checked = true;
+    else if(!panel.querySelector(`.va-s[data-t="${id}"]:checked`)) t.checked = false;
+  }));
+  panel.querySelectorAll('.va-t').forEach(t => t.addEventListener('change', () => {
+    if(t.checked && !panel.querySelector(`.va-s[data-t="${t.value}"]:checked`)) panel.querySelectorAll(`.va-s[data-t="${t.value}"]`).forEach(c => { c.checked = true; });
+  }));
+  document.getElementById('vaSalva').addEventListener('click', async () => {
+    const nascosti = Array.from(panel.querySelectorAll('.va-t')).filter(t => !t.checked).map(t => t.value);
+    const sezioniNascoste = {};
+    ORDER.forEach(id => {
+      const off = Array.from(panel.querySelectorAll(`.va-s[data-t="${id}"]`)).filter(c => !c.checked).map(c => c.value);
+      if(off.length) sezioniNascoste[id] = off;
+    });
+    const note = document.getElementById('vaNote');
+    if(nascosti.length === ORDER.length){ note.className = 'board-note err'; note.textContent = 'Lascia visibile almeno un argomento.'; return; }
+    try{
+      await db.collection('config').doc('argomenti').set({ nascosti, sezioniNascoste, aggiornato: Date.now() });
+      VISIBILI = { nascosti, sezioniNascoste };
+      note.className = 'board-note'; note.textContent = 'Salvato: gli alunni vedono subito la nuova scelta.';
+    }catch(e){ console.error(e); note.className = 'board-note err'; note.textContent = 'Salvataggio non riuscito: controlla connessione e regole Firestore.'; }
+  });
 }
 
 // ---------- Archivio gare (collezione "gare": una scheda per gara) ----------
@@ -2106,6 +2265,19 @@ function avvia(){
   modeLabelEl = document.getElementById('modeLabel');
   hudRow = document.getElementById('hudRow');
   initFirebase();
+  // argomenti e sezioni visibili agli alunni (scelti dal docente nel cruscotto)
+  if(db){
+    db.collection('config').doc('argomenti').onSnapshot(snap => {
+      const d = snap.exists ? snap.data() : null;
+      VISIBILI = { nascosti: (d && d.nascosti) || [], sezioniNascoste: (d && d.sezioniNascoste) || {} };
+      // se l'alunno è su un menu, lo si ridisegna conservando il nome già scritto
+      if(!state && !garaCtx && !teacherCtx && !guidaCtx && document.querySelector('#panel .menu')){
+        const inp = document.getElementById('nomeInput'), v = inp ? inp.value : null;
+        drawMenu();
+        const inp2 = document.getElementById('nomeInput'); if(inp2 && v !== null) inp2.value = v;
+      }
+    }, e => console.warn('configurazione argomenti non letta', e));
+  }
   // link "Cruscotto docente" nel footer
   const fd = document.getElementById('footDocente');
   if(fd) fd.addEventListener('click', e => { e.preventDefault(); renderTeacherGate(); });

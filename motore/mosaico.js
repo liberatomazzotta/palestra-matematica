@@ -65,8 +65,13 @@ function oggiKey(d){
   d = d || new Date();
   return 'g' + d.getFullYear() + String(d.getMonth() + 1).padStart(2, '0') + String(d.getDate()).padStart(2, '0');
 }
-function nomeCat(topic, c){ return (ARG[topic] && ARG[topic].categorie && ARG[topic].categorie[c]) || c; }
-function nomeArg(topic, fallback){ return (ARG[topic] && ARG[topic].titolo) || fallback || topic; }
+const VECCHI = { 'fattori-primi': 'Fattori primi e divisibilità', 'mcd-mcm': 'MCD e mcm' };   // argomenti delle versioni precedenti
+function nomeCat(topic, c){
+  const nome = (ARG[topic] && ARG[topic].categorie && ARG[topic].categorie[c]) || c;
+  const sec = ARG[topic] && (ARG[topic].sezioni || []).find(x => x.categorie.indexOf(c) > -1);
+  return sec ? sec.id + ' ' + nome : nome;
+}
+function nomeArg(topic, fallback){ return (ARG[topic] && ARG[topic].titolo) || VECCHI[topic] || fallback || topic; }
 // somma le statistiche di un alunno sui giorni scelti -> { topic: {ok, ko, sec, guidati, cat:{c:{ok,ko}}} }
 function sommaGiorni(d, giorni){
   const out = {};

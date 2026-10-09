@@ -68,6 +68,14 @@ service cloud.firestore {
       allow delete: if true;
     }
 
+    // Argomenti e sezioni visibili agli alunni (scelti dal docente).
+    match /config/{cid} {
+      allow read: if true;
+      allow write: if request.resource.data.keys().hasAll(['nascosti','sezioniNascoste','aggiornato'])
+                   && request.resource.data.nascosti is list
+                   && request.resource.data.sezioniNascoste is map;
+    }
+
     // Archivio gare: una scheda riassuntiva per gara (impostazioni, squadre, classifica finale).
     match /gare/{gid} {
       allow read: if true;
