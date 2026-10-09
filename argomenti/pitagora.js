@@ -218,16 +218,181 @@ function qPerimetro(livello){
   };
 }
 
+// ================= sezioni aggiunte secondo l'indice del libro =================
+const num = x => U.num(x);
+function poligono(punti, extra){
+  // punti in coordinate "matematiche" (y verso l'alto); adattati alla finestra 280×190
+  const W = 280, H = 190, M = 34;
+  const xs = punti.map(p => p[0]), ys = punti.map(p => p[1]);
+  const minX = Math.min(...xs), maxX = Math.max(...xs), minY = Math.min(...ys), maxY = Math.max(...ys);
+  const s = Math.min((W - 2 * M) / (maxX - minX || 1), (H - 2 * M) / (maxY - minY || 1));
+  const ox = (W - (maxX - minX) * s) / 2, oy = (H - (maxY - minY) * s) / 2;
+  const T = p => [ox + (p[0] - minX) * s, H - oy - (p[1] - minY) * s];
+  let g = `<polygon points="${punti.map(T).map(q => q[0].toFixed(1) + ',' + q[1].toFixed(1)).join(' ')}" fill="${F.fill}" stroke="${F.line}" stroke-width="2.5" stroke-linejoin="round"/>`;
+  g += (extra || []).map(e => {
+    if(e.linea){ const A = T(e.linea[0]), B = T(e.linea[1]); return `<line x1="${A[0].toFixed(1)}" y1="${A[1].toFixed(1)}" x2="${B[0].toFixed(1)}" y2="${B[1].toFixed(1)}" stroke="${e.col || F.unknown}" stroke-width="2.2" stroke-dasharray="6 4"/>`; }
+    if(e.testo){ const A = T(e.testo); return testo(A[0] + (e.dx || 0), A[1] + (e.dy || 0), e.t, e.col || F.known, e.anchor || 'middle'); }
+    return '';
+  }).join('');
+  return svg(W, H, g);
+}
+// terna adatta alle figure (niente triangoli troppo schiacciati come 7-24-25)
+function ternaFig(livello){ for(let t = 0; t < 40; t++){ const x = terna(livello); if(Math.max(x[0], x[1]) / Math.min(x[0], x[1]) <= 2.5) return x; } return [3, 4, 5].map(v => v * rand(1, 3)); }
+// 2.3 parallelogramma
+function qParall(livello){
+  const [p, h, l] = ternaFig(Math.max(livello, 2)), b = p + rand(4, 12);
+  const pts = [[0, 0], [b, 0], [b + p, h], [p, h]];
+  const fig = (lab) => poligono(pts, [{ linea: [[p, h], [p, 0]], col: lab.hCol }, { testo: [p / 2, 0], t: lab.p, dy: 15 }, { testo: [p, h / 2], t: lab.h, dx: 6, anchor: 'start', col: lab.hCol }, { testo: [p / 2, h / 2], t: lab.l, dx: -10, anchor: 'end', col: lab.lCol }]);
+  return {
+    tipo: 'numerica', istruzione: 'Problema', punti: 14, tempo: 30, categoria: 'app-parall',
+    testo: `${fig({ p: p + ' cm', h: 'h = ' + h + ' cm', l: '?', hCol: F.known, lCol: F.unknown })}In un parallelogramma l'altezza misura <b>${h} cm</b> e la proiezione del lato obliquo sulla base <b>${p} cm</b>. Quanto misura il lato obliquo (in cm)?`,
+    corretta: l,
+    spiegazione: `L'altezza stacca un triangolo rettangolo: cateti = altezza (${h}) e proiezione (${p}), ipotenusa = lato obliquo.<br>l = √(${h}² + ${p}²) = √${l * l} = <b class="res">${l}</b> cm.`
+  };
+}
+// 2.4 quadrato
+function qQuadrato(livello){
+  if(Math.random() < 0.5){
+    const l = rand(3, livello <= 2 ? 12 : 25);
+    return {
+      tipo: 'numerica', istruzione: 'Calcola (usa √2 ≈ 1,414)', punti: 12, tempo: 25, categoria: 'app-quad', decimali: 2, tolleranza: 0.02,
+      testo: `${poligono([[0, 0], [l, 0], [l, l], [0, l]], [{ linea: [[0, 0], [l, l]] }, { testo: [l / 2, 0], t: l + ' cm', dy: 15 }, { testo: [l / 2, l / 2], t: 'd = ?', dx: 10, dy: -8, col: F.unknown, anchor: 'start' }])}Il lato di un quadrato misura <b>${l} cm</b>. Quanto misura la diagonale? (arrotonda ai centesimi)`,
+      corretta: Math.round(l * 1.414 * 100) / 100,
+      spiegazione: `La diagonale divide il quadrato in due triangoli rettangoli isosceli: d = √(l² + l²) = l × √2 ≈ ${l} × 1,414 = <b class="res">${num(Math.round(l * 1.414 * 100) / 100)}</b> cm.`
+    };
+  }
+  const d = 2 * rand(2, livello <= 2 ? 8 : 15);
+  return {
+    tipo: 'numerica', istruzione: 'Calcola', punti: 12, tempo: 20, categoria: 'app-quad',
+    testo: `${poligono([[0, 0], [10, 0], [10, 10], [0, 10]], [{ linea: [[0, 0], [10, 10]], col: F.known }, { testo: [5, 5], t: 'd = ' + d + ' cm', dx: 10, dy: -8, anchor: 'start' }])}La diagonale di un quadrato misura <b>${d} cm</b>. Quanto misura l'area (in cm²)?`,
+    corretta: d * d / 2,
+    spiegazione: `Per Pitagora d² = l² + l² = 2 × l², quindi l'area l² = d² : 2 = ${d * d} : 2 = <b class="res">${d * d / 2}</b> cm² (il quadrato è anche un rombo: A = d × d : 2).`
+  };
+}
+// 2.6 triangolo equilatero
+function qEquilatero(livello){
+  const l = 2 * rand(2, livello <= 3 ? 10 : 20), h = Math.round(l * 0.866 * 100) / 100;
+  return {
+    tipo: 'numerica', istruzione: 'Calcola (usa √3/2 ≈ 0,866)', punti: 14, tempo: 25, categoria: 'app-equi', decimali: 2, tolleranza: 0.03,
+    testo: `${figIsoscele(l, l * 0.866, { base: l + ' cm', h: 'h = ?', lato: l + ' cm' })}Il lato di un triangolo equilatero misura <b>${l} cm</b>. Quanto misura l'altezza? (arrotonda ai centesimi)`,
+    corretta: h,
+    spiegazione: `L'altezza divide il triangolo in due triangoli rettangoli con ipotenusa ${l} e cateto ${l / 2}: h = √(${l}² − ${l / 2}²) = l × √3/2 ≈ ${l} × 0,866 = <b class="res">${num(h)}</b> cm.`
+  };
+}
+// 2.7 triangoli rettangoli con angoli di 45°, 30° e 60°
+function qAngoli(livello){
+  if(Math.random() < 0.5){
+    const c = rand(3, livello <= 3 ? 12 : 20), i = Math.round(c * 1.414 * 100) / 100;
+    return {
+      tipo: 'numerica', istruzione: 'Triangolo con angoli di 45° (√2 ≈ 1,414)', punti: 14, tempo: 25, categoria: 'ang-45', decimali: 2, tolleranza: 0.02,
+      testo: `${figTriangolo(c, c, { a: c + ' cm', b: c + ' cm', c: '?' })}Un triangolo rettangolo ha due angoli di <b>45°</b> e i cateti di <b>${c} cm</b>. Quanto misura l'ipotenusa? (arrotonda ai centesimi)`,
+      corretta: i,
+      spiegazione: `Con angoli di 45° il triangolo è isoscele (è metà di un quadrato): ipotenusa = cateto × √2 ≈ ${c} × 1,414 = <b class="res">${num(i)}</b> cm.`
+    };
+  }
+  const i = 2 * rand(3, livello <= 3 ? 10 : 20), cm = i / 2, cM = Math.round(cm * 1.732 * 100) / 100;
+  const chiediMinore = Math.random() < 0.5;
+  return {
+    tipo: 'numerica', istruzione: 'Triangolo con angoli di 30° e 60°' + (chiediMinore ? '' : ' (√3 ≈ 1,732)'), punti: 14, tempo: 25, categoria: 'ang-30',
+    decimali: chiediMinore ? 0 : 2, tolleranza: 0.03,
+    testo: `${figTriangolo(cM, cm, { a: chiediMinore ? '' : '?', b: chiediMinore ? '?' : '', c: i + ' cm' }, { a: F.unknown, b: F.unknown, c: F.known })}Un triangolo rettangolo ha gli angoli acuti di <b>30°</b> e <b>60°</b> e l'ipotenusa di <b>${i} cm</b>. Quanto misura il cateto ${chiediMinore ? '<b>minore</b> (opposto all\'angolo di 30°)' : '<b>maggiore</b>? (arrotonda ai centesimi)'}${chiediMinore ? '?' : ''}`,
+    corretta: chiediMinore ? cm : cM,
+    spiegazione: `È metà di un triangolo equilatero: il cateto minore è metà dell'ipotenusa (${i} : 2 = ${cm}); il cateto maggiore è cateto minore × √3 ≈ ${cm} × 1,732 = ${num(cM)}. Risposta: <b class="res">${num(chiediMinore ? cm : cM)}</b> cm.`
+  };
+}
+// 2.9 trapezio rettangolo
+function qTrapRett(livello){
+  const [p, h, l] = ternaFig(Math.max(livello, 2)), b = rand(4, 15), B = b + p;
+  return {
+    tipo: 'numerica', istruzione: 'Problema', punti: 16, tempo: 35, categoria: 'trap-rett',
+    testo: `${poligono([[0, 0], [B, 0], [b, h], [0, h]], [{ linea: [[b, h], [b, 0]], col: F.known }, { testo: [B / 2, 0], t: 'B = ' + B, dy: 15 }, { testo: [b / 2, h], t: 'b = ' + b, dy: -12 }, { testo: [0, h / 2], t: 'h = ' + h, dx: -8, anchor: 'end' }, { testo: [(b + B) / 2, h / 2], t: '?', dx: 12, col: F.unknown }])}In un trapezio rettangolo le basi misurano <b>${B} cm</b> e <b>${b} cm</b> e l'altezza <b>${h} cm</b>. Quanto misura il lato obliquo (in cm)?`,
+    corretta: l,
+    spiegazione: `Il triangolo rettangolo ha cateti = altezza (${h}) e differenza delle basi (${B} − ${b} = ${p}); l'ipotenusa è il lato obliquo: √(${h}² + ${p}²) = <b class="res">${l}</b> cm.`
+  };
+}
+// 2.10 trapezio isoscele
+function qTrapIso(livello){
+  const [p, h, l] = ternaFig(Math.max(livello, 2)), b = rand(4, 15), B = b + 2 * p;
+  const chiediH = Math.random() < 0.5;
+  return {
+    tipo: 'numerica', istruzione: 'Problema', punti: 16, tempo: 40, categoria: 'trap-iso',
+    testo: `${poligono([[0, 0], [B, 0], [p + b, h], [p, h]], [{ linea: [[p, h], [p, 0]], col: chiediH ? F.unknown : F.known }, { testo: [B / 2, 0], t: 'B = ' + B, dy: 15 }, { testo: [p + b / 2, h], t: 'b = ' + b, dy: -12 }, { testo: [p, h / 2], t: chiediH ? 'h = ?' : 'h = ' + h, dx: 6, anchor: 'start', col: chiediH ? F.unknown : F.known }, { testo: [p / 2, h / 2], t: chiediH ? l + ' cm' : '?', dx: -10, anchor: 'end', col: chiediH ? F.known : F.unknown }])}In un trapezio isoscele le basi misurano <b>${B} cm</b> e <b>${b} cm</b> e ${chiediH ? `ciascun lato obliquo <b>${l} cm</b>. Quanto misura l'altezza` : `l'altezza <b>${h} cm</b>. Quanto misura ciascun lato obliquo`} (in cm)?`,
+    corretta: chiediH ? h : l,
+    spiegazione: `La proiezione del lato obliquo sulla base maggiore è (B − b) : 2 = (${B} − ${b}) : 2 = ${p}. ` + (chiediH ? `h = √(${l}² − ${p}²) = <b class="res">${h}</b> cm.` : `lato = √(${h}² + ${p}²) = <b class="res">${l}</b> cm.`)
+  };
+}
+// 2.11 distanza tra due punti nel piano cartesiano
+function figPiano(A, B){
+  const W = 260, H = 220, M = 26, N = 12;
+  const s = Math.min((W - 2 * M) / N, (H - 2 * M) / N);
+  const X = x => M + x * s, Y = y => H - M - y * s;
+  let g = '';
+  for(let k = 0; k <= N; k++){
+    g += `<line x1="${X(k)}" y1="${Y(0)}" x2="${X(k)}" y2="${Y(N)}" stroke="rgba(242,240,230,0.12)"/><line x1="${X(0)}" y1="${Y(k)}" x2="${X(N)}" y2="${Y(k)}" stroke="rgba(242,240,230,0.12)"/>`;
+    if(k % 2 === 0 && k) g += testo(X(k), Y(0) + 12, k, 'var(--chalk-dim)', 'middle', 10) + testo(X(0) - 9, Y(k), k, 'var(--chalk-dim)', 'middle', 10);
+  }
+  g += `<line x1="${X(0)}" y1="${Y(0)}" x2="${X(N)}" y2="${Y(0)}" stroke="var(--chalk)" stroke-width="1.6"/><line x1="${X(0)}" y1="${Y(0)}" x2="${X(0)}" y2="${Y(N)}" stroke="var(--chalk)" stroke-width="1.6"/>`;
+  g += `<polyline points="${X(A[0])},${Y(A[1])} ${X(B[0])},${Y(A[1])} ${X(B[0])},${Y(B[1])}" fill="none" stroke="${F.known}" stroke-width="1.8" stroke-dasharray="5 4"/>`;
+  g += `<line x1="${X(A[0])}" y1="${Y(A[1])}" x2="${X(B[0])}" y2="${Y(B[1])}" stroke="${F.unknown}" stroke-width="2.5"/>`;
+  [[A, 'A'], [B, 'B']].forEach(([P, n]) => { g += `<circle cx="${X(P[0])}" cy="${Y(P[1])}" r="4.5" fill="var(--yellow)"/>` + testo(X(P[0]) + 10, Y(P[1]) - 10, n, 'var(--yellow)'); });
+  return svg(W, H, g);
+}
+function qDistanza(livello){
+  const t = pick(livello <= 2 ? [[3, 4, 5]] : [[3, 4, 5], [6, 8, 10], [5, 12, 13]].filter(x => x[0] <= 12 && x[1] <= 12));
+  const sw = Math.random() < 0.5, dx = sw ? t[1] : t[0], dy = sw ? t[0] : t[1];
+  const x1 = rand(0, 12 - dx), y1 = rand(0, 12 - dy);
+  const A = [x1, y1], B = [x1 + dx, y1 + dy];
+  return {
+    tipo: 'numerica', istruzione: 'Piano cartesiano', punti: 14, tempo: 30, categoria: 'distanza',
+    testo: `${figPiano(A, B)}Calcola la distanza tra <b>A(${A[0]}; ${A[1]})</b> e <b>B(${B[0]}; ${B[1]})</b>.`,
+    corretta: t[2],
+    spiegazione: `I cateti sono le differenze delle coordinate: ${B[0]} − ${A[0]} = ${dx} e ${B[1]} − ${A[1]} = ${dy}. AB = √(${dx}² + ${dy}²) = √${t[2] * t[2]} = <b class="res">${t[2]}</b>.`
+  };
+}
+// 2.12 terne pitagoriche
+function qTerne(livello){
+  const [a, b, c] = pick(PRIMITIVE.slice(0, livello <= 2 ? 3 : 5)), k = rand(2, livello <= 2 ? 4 : 6);
+  if(Math.random() < 0.5){
+    return {
+      tipo: 'numerica', istruzione: 'Completa la terna', punti: 8, tempo: 12, categoria: 'terne',
+      testo: `(${a}, ${b}, ${c}) è una terna pitagorica. Moltiplicando per ${k} si ottiene (${a * k}, ${b * k}, <b>?</b>). Qual è il numero mancante?`,
+      corretta: c * k,
+      spiegazione: `Moltiplicando i tre numeri di una terna per lo stesso numero si ottiene ancora una terna: ${c} × ${k} = <b class="res">${c * k}</b>. Verifica: ${a * k}² + ${b * k}² = ${(c * k) ** 2}.`
+    };
+  }
+  return {
+    tipo: 'numerica', istruzione: 'Completa la terna', punti: 10, tempo: 20, categoria: 'terne',
+    testo: `Completa la terna pitagorica: (${a * k}, <b>?</b>, ${c * k}).`, corretta: b * k,
+    spiegazione: `√(${c * k}² − ${a * k}²) = √${(b * k) ** 2} = <b class="res">${b * k}</b>; è la terna (${a}, ${b}, ${c}) moltiplicata per ${k}.`
+  };
+}
+
 const GEN = {
-  'quadrati': qQuadrati, 'ipo': qIpotenusa, 'cat': qCateto, 'terna': qTerna,
-  'app-rett': qRettangolo, 'app-iso': qIsoscele, 'app-rombo': qRombo, 'perim': qPerimetro
+  'quadrati': qQuadrati, 'ipo': qIpotenusa, 'cat': qCateto, 'terna': qTerna, 'perim': qPerimetro,
+  'app-rett': qRettangolo, 'app-parall': qParall, 'app-quad': qQuadrato, 'app-iso': qIsoscele, 'app-equi': qEquilatero,
+  'ang-45': qAngoli, 'ang-30': qAngoli, 'app-rombo': qRombo, 'trap-rett': qTrapRett, 'trap-iso': qTrapIso,
+  'distanza': qDistanza, 'terne': qTerne
 };
 const ROTAZIONE = {
-  1: ['quadrati', 'ipo', 'quadrati', 'ipo', 'terna'],
-  2: ['ipo', 'cat', 'terna', 'quadrati', 'ipo', 'cat'],
-  3: ['cat', 'app-rett', 'ipo', 'terna', 'app-iso', 'perim'],
-  4: ['app-iso', 'app-rombo', 'perim', 'cat', 'app-rett', 'app-rombo']
+  1: ['quadrati', 'ipo', 'terna', 'quadrati', 'ipo', 'cat'],
+  2: ['ipo', 'cat', 'terna', 'app-rett', 'app-quad', 'terne', 'distanza'],
+  3: ['cat', 'app-rett', 'app-iso', 'app-parall', 'perim', 'app-rombo', 'trap-rett', 'distanza'],
+  4: ['app-equi', 'ang-45', 'trap-iso', 'trap-rett', 'app-rombo', 'app-parall', 'ang-30']
 };
+const SEZIONI = [
+  { id: '2.1', titolo: 'Il teorema di Pitagora', categorie: ['quadrati', 'terna'] },
+  { id: '2.2', titolo: 'Calcolo delle misure dei lati di un triangolo rettangolo', categorie: ['ipo', 'cat', 'perim'] },
+  { id: '2.3', titolo: 'Applicazione al rettangolo e al parallelogramma', categorie: ['app-rett', 'app-parall'] },
+  { id: '2.4', titolo: 'Applicazione al quadrato', categorie: ['app-quad'] },
+  { id: '2.5', titolo: 'Applicazione al triangolo isoscele', categorie: ['app-iso'] },
+  { id: '2.6', titolo: 'Applicazione al triangolo equilatero', categorie: ['app-equi'] },
+  { id: '2.7', titolo: 'Triangoli rettangoli con angoli di 45°, 30° e 60°', categorie: ['ang-45', 'ang-30'] },
+  { id: '2.8', titolo: 'Applicazione al rombo', categorie: ['app-rombo'] },
+  { id: '2.9', titolo: 'Applicazione al trapezio rettangolo', categorie: ['trap-rett'] },
+  { id: '2.10', titolo: 'Applicazione al trapezio isoscele', categorie: ['trap-iso'] },
+  { id: '2.11', titolo: 'Distanza tra due punti nel piano cartesiano', categorie: ['distanza'] },
+  { id: '2.12', titolo: 'Le terne pitagoriche', categorie: ['terne'] }
+];
 
 // ---------- Guidami ----------
 const TEORIA = `
@@ -238,7 +403,8 @@ const TEORIA = `
   • ipotenusa: <b>i = √(c₁² + c₂²)</b><br>
   • cateto: <b>c₁ = √(i² − c₂²)</b> — per il cateto si <b>sottrae</b>!</p>
   <p><b>Terne pitagoriche</b>: tre numeri interi che soddisfano il teorema, come 3-4-5, 6-8-10, 5-12-13, 8-15-17.</p>
-  <p><b>Dove si usa</b>: diagonale del rettangolo, altezza del triangolo isoscele, lato del rombo… Si cerca sempre il <b>triangolo rettangolo</b> nascosto nella figura.</p>`;
+  <p><b>Dove si usa</b>: si cerca sempre il <b>triangolo rettangolo</b> nascosto nella figura. Diagonale del rettangolo e del quadrato; altezza del triangolo isoscele ed equilatero; lato del rombo (metà diagonali); lato obliquo di parallelogramma e trapezi (altezza e proiezione); distanza tra due punti nel piano cartesiano (differenze delle coordinate).</p>
+  <p><b>Formule utili</b>: diagonale del quadrato d = l × √2 ≈ l × 1,414; altezza del triangolo equilatero h = l × √3/2 ≈ l × 0,866. Con angoli di 30° e 60° il cateto minore è metà dell'ipotenusa.</p>`;
 
 function esIpotenusa(){
   const [a, b, c] = terna(2);
@@ -297,17 +463,27 @@ function esRettangolo(){
 Palestra.registraArgomento({
   id: 'pitagora',
   titolo: 'Teorema di Pitagora',
-  descrizione: 'Ipotenusa e cateti, terne pitagoriche, applicazioni a rettangolo, triangolo isoscele e rombo. Con figure.',
+  descrizione: 'Il teorema e le sue applicazioni ai poligoni, triangoli con angoli di 45°, 30° e 60°, distanza nel piano cartesiano, terne pitagoriche.',
+  sezioni: SEZIONI,
   categorie: {
-    'quadrati': 'Quadrati sui lati', 'ipo': 'Calcolo dell\'ipotenusa', 'cat': 'Calcolo di un cateto',
-    'terna': 'Riconoscere un triangolo rettangolo', 'app-rett': 'Diagonale del rettangolo',
-    'app-iso': 'Triangolo isoscele', 'app-rombo': 'Lato del rombo', 'perim': 'Perimetro del triangolo rettangolo'
+    'quadrati': 'Quadrati sui lati', 'terna': 'Riconoscere un triangolo rettangolo',
+    'ipo': 'Calcolo dell\'ipotenusa', 'cat': 'Calcolo di un cateto', 'perim': 'Perimetro del triangolo rettangolo',
+    'app-rett': 'Diagonale del rettangolo', 'app-parall': 'Lato obliquo del parallelogramma', 'app-quad': 'Diagonale e area del quadrato',
+    'app-iso': 'Triangolo isoscele', 'app-equi': 'Altezza del triangolo equilatero',
+    'ang-45': 'Triangolo con angoli di 45°', 'ang-30': 'Triangolo con angoli di 30° e 60°',
+    'app-rombo': 'Lato del rombo', 'trap-rett': 'Trapezio rettangolo', 'trap-iso': 'Trapezio isoscele',
+    'distanza': 'Distanza tra due punti', 'terne': 'Terne pitagoriche'
   },
   guida: {
     teoria: TEORIA,
     generaEsercizio(indice){ return [esIpotenusa, esCateto, esRettangolo][indice % 3](); }
   },
-  generaDomandaDi(categoria, livello){ return GEN[categoria] ? GEN[categoria](livello) : null; },
+  generaDomandaDi(categoria, livello){
+    if(!GEN[categoria]) return null;
+    // ang-45 e ang-30 condividono il generatore: si riprova finché esce quello chiesto
+    for(let t = 0; t < 20; t++){ const q = GEN[categoria](livello); if(q.categoria === categoria) return q; }
+    return null;
+  },
   generaDomanda(livello, indice){
     const lista = ROTAZIONE[livello] || ROTAZIONE[1];
     return GEN[lista[indice % lista.length]](livello);

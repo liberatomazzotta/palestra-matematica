@@ -323,9 +323,25 @@ function esProblema(){
   };
 }
 
+const SEZIONI = [
+  { id: 'Esp.', titolo: 'Esploro: frazioni di un rettangolo', categorie: ['figura'] },
+  { id: '5.1', titolo: 'Le unità frazionarie - La frazione come operatore', categorie: ['operatore'] },
+  { id: '5.2', titolo: 'La frazione come quoziente di due numeri naturali', categorie: ['quoziente'] },
+  { id: '5.3', titolo: 'Classificare le frazioni', categorie: ['classifica'] },
+  { id: '5.4', titolo: 'Frazione complementare - Numeri misti', categorie: ['complementare', 'misti'] },
+  { id: '5.5', titolo: 'Frazioni equivalenti', categorie: ['equivalenti'] },
+  { id: '5.6', titolo: 'Semplificare e ridurre ai minimi termini una frazione', categorie: ['semplifica'] },
+  { id: '5.7', titolo: 'Trasformare una frazione in un\'altra equivalente di denominatore assegnato', categorie: ['denominatore'] },
+  { id: '5.8', titolo: 'Ridurre al minimo comune denominatore', categorie: ['mcd'] },
+  { id: '5.9', titolo: 'Confrontare le frazioni', categorie: ['confronto'] },
+  { id: '5.10', titolo: 'L\'insieme Qa dei numeri razionali assoluti', categorie: ['retta'] },
+  { id: '5.11', titolo: 'Risolvere problemi con le frazioni', categorie: ['problemi'] }
+];
+
 Palestra.registraArgomento({
   id: 'frazioni',
-  titolo: 'Le frazioni',
+  titolo: 'Le frazioni e l\'insieme Qa',
+  sezioni: SEZIONI,
   descrizione: 'Unità frazionarie, frazione come operatore e quoziente, classificazione, equivalenti, semplificazione, confronto, numeri misti, Qa, problemi.',
   categorie: {
     figura: 'Frazione di una figura', operatore: 'Frazione come operatore', quoziente: 'Frazione come quoziente',

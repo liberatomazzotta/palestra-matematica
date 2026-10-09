@@ -488,3 +488,6 @@ a.backlink{text-decoration:none;display:inline-flex;align-items:center;}
 .va-card{max-width:520px;margin:0 auto;}
 .va-secs{display:flex;flex-direction:column;gap:2px;padding-left:10px;}
 .topicpick{max-width:420px;}
+.tp-list[hidden]{display:none;}
+.va-card > .tp{display:flex;gap:10px;align-items:center;font-weight:700;font-size:15px;cursor:pointer;color:var(--yellow);}
+.va-card > .tp input{width:18px;height:18px;accent-color:var(--blue);margin:0;}

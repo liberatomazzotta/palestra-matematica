@@ -20,8 +20,7 @@ config.js             configurazione Firebase e codice docente  <-- unico file d
 firestore.rules       regole di sicurezza del database
 motore/               menu, gara, podio, cruscotto docente
 argomenti/
-  fattori-primi.js    fattori primi e criteri di divisibilità
-  mcd-mcm.js          MCD e mcm
+  divisibilita.js     La divisibilità (unità 4: 4.1–4.12)
   pitagora.js         Teorema di Pitagora (con figure disegnate in proporzione)
   frazioni.js         Le frazioni e Qa (unità 5: operatore, equivalenti, confronto, numeri misti, retta, problemi)
 ```
@@ -58,11 +57,15 @@ In Guidami, Allenamento e nell'impostazione della gara si possono spuntare **uno
 4. A squadre: il docente assegna gli alunni con "+ Aggiungi alunno…" su ogni squadra (× per toglierli) oppure **Distribuisci a caso**. Ogni alunno vede la propria squadra. Punteggio di squadra = media dei punteggi dei componenti che hanno giocato.
 5. **Avvia la manche 1**, poi le successive; dopo l'ultima: **Classifica finale (podio)** (anche gli alunni hanno il pulsante).
 
-Il cruscotto ha quattro piastrelle: **Gara**, **Vista alunni** (si apre in una nuova scheda), **Archivio gare**, **Pulizia dati**.
+Il cruscotto ha cinque piastrelle: **Gara**, **Vista alunni** (si apre in una nuova scheda), **Argomenti**, **Archivio gare**, **Pulizia dati**.
+
+**Sezioni del libro**: ogni argomento segue l'indice del libro in adozione (La divisibilità 4.1–4.12, Le frazioni 5.1–5.11, Il teorema di Pitagora 2.1–2.12). In Guidami, Allenamento e Gara, accanto a ogni argomento c'è "Tutte le sezioni ▾" per scegliere solo alcune sezioni. I tipi di esercizio nel report e nel ripasso riportano il numero di sezione (es. "4.5 Scomposizione in fattori primi").
+
+**Argomenti** (cruscotto): il docente spunta gli argomenti e le sezioni che gli alunni vedono in Guidami e Allenamento (le sezioni non ancora trattate restano nascoste). La scelta è salvata in Firestore (`config/argomenti`) e la home degli alunni si aggiorna da sola. Per la gara il docente può scegliere qualunque sezione.
 
 **Archivio gare**: ogni gara ha una scheda (collezione `gare`) con data, argomenti, manches giocate, squadre e classifica finale (individuale e a squadre), aggiornata alla fine di ogni manche e prima di creare una nuova gara. Dalla scheda: **Scarica CSV** o **Elimina dall'archivio**. La pulizia dei risultati non tocca l'archivio; c'è un comando apposito per svuotarlo.
 
-**Regole Firestore**: questa versione usa la collezione `players` (iscritti alla gara) e manches fino a 10. Ripubblica `firestore.rules` (ora contiene anche la collezione `gare`) (Console Firebase → Firestore → Regole → incolla → Pubblica), altrimenti gli alunni non compaiono nell'elenco.
+**Regole Firestore**: questa versione usa la collezione `players` (iscritti alla gara) e manches fino a 10. Ripubblica `firestore.rules` (ora contiene anche le collezioni `gare` e `config`) (Console Firebase → Firestore → Regole → incolla → Pubblica), altrimenti gli alunni non compaiono nell'elenco.
 
 ## Vista alunni (esercitazione e gara)
 
@@ -131,6 +134,10 @@ guida: {
 Gli argomenti senza `guida` non compaiono nel menu di Guidami.
 
 ## Aggiungere un argomento
+
+Risposte con la virgola: tipo `numerica` con `decimali: 2` (e `tolleranza`, predefinita 0,01); l'alunno può scrivere 8,66 o 8.66.
+
+Argomenti con sezioni del libro: `sezioni: [{ id: '4.5', titolo: '…', categorie: ['scomp'] }, …]`.
 
 Risposte a frazione: tipo `frazione` con `corretta: [numeratore, denominatore]` (e `ridotta: true` se va data ai minimi termini); l'alunno scrive numeratore e denominatore in due caselle.
 

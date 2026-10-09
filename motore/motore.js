@@ -68,6 +68,8 @@ const U = {
     if(!keys.length) return '1';
     return keys.map(p => m[p] > 1 ? `${p}<sup>${m[p]}</sup>` : `${p}`).join(' × ');
   },
+  // numero con la virgola (es. 8,66)
+  num(x){ return Number.isInteger(x) ? String(x) : String(Math.round(x * 100) / 100).replace('.', ','); },
   // frazione in colonna (numeratore sopra, denominatore sotto)
   fr(n, d){ return `<span class="fr"><span>${n}</span><span>${d}</span></span>`; },
   esc(s){
@@ -951,7 +953,7 @@ function saltaDomanda(cur){
   presSkip(q.categoria, q._topic);
   document.querySelectorAll('#qArea button, #qArea input').forEach(el => { el.disabled = true; });
   const sk = document.getElementById('skipBtn'); if(sk) sk.disabled = true;
-  const risposta = q.tipo === 'scelta' ? q.opzioni[q.corretta] : q.tipo === 'numerica' ? q.corretta : q.tipo === 'frazione' ? U.fr(q.corretta[0], q.corretta[1]) : (q.soluzione || '');
+  const risposta = q.tipo === 'scelta' ? q.opzioni[q.corretta] : q.tipo === 'numerica' ? U.num(q.corretta) : q.tipo === 'frazione' ? U.fr(q.corretta[0], q.corretta[1]) : (q.soluzione || '');
   showRule(`<b>Domanda saltata.</b>${risposta !== '' ? ` Risposta giusta: <b class="res">${risposta}</b>.` : ''} <span class="hint">Questo tipo di esercizio tornerà più avanti.</span>`, true);
 }
 
@@ -979,7 +981,7 @@ function makeCtx(cur){
         const q = cur.q;
         if(breve) html = breve;
         else if(q.tipo === 'scelta') html = `<b>Sbagliato.</b> Risposta giusta: <b class="res">${q.opzioni[q.corretta]}</b>.`;
-        else if(q.tipo === 'numerica') html = `<b>Sbagliato.</b> Risposta giusta: <b class="res">${q.corretta}</b>.`;
+        else if(q.tipo === 'numerica') html = `<b>Sbagliato.</b> Risposta giusta: <b class="res">${U.num(q.corretta)}</b>.`;
         else if(q.tipo === 'frazione') html = `<b>Sbagliato.</b> Risposta giusta: <b class="res">${U.fr(q.corretta[0], q.corretta[1])}</b>.`;
         else html = '<b>Sbagliato.</b> Riprova.';
       }
@@ -1058,10 +1060,17 @@ function mostraFrazione(q, area, ctx){
   n.focus();
 }
 
+// Risposte numeriche: intere, oppure con la virgola se la domanda ha "decimali" (tolleranza 0,01 o "tolleranza")
+function formatoValido(raw, q){ return q.decimali ? /^\d+([.,]\d+)?$/.test(raw) : /^\d+$/.test(raw); }
+function numeroGiusto(raw, q){
+  if(!q.decimali) return Number(raw) === q.corretta;
+  const v = Number(String(raw).replace(',', '.'));
+  return Math.abs(v - q.corretta) <= (q.tolleranza !== undefined ? q.tolleranza : 0.011);
+}
 function mostraNumerica(q, area, ctx){
   area.innerHTML = `<div class="tf-question">${q.testo}</div>
     <div class="num-row">
-      <input class="nameinput numinput" id="ansInput" inputmode="numeric" autocomplete="off" placeholder="Risposta">
+      <input class="nameinput numinput" id="ansInput" inputmode="${q.decimali ? 'decimal' : 'numeric'}" autocomplete="off" placeholder="${q.decimali ? 'Es. 8,66' : 'Risposta'}">
       <button class="startbtn" id="ansBtn">Conferma</button>
     </div>`;
   const input = document.getElementById('ansInput');
@@ -1070,14 +1079,14 @@ function mostraNumerica(q, area, ctx){
   const invia = () => {
     if(fatto) return;
     const raw = input.value.trim();
-    if(!/^\d+$/.test(raw)){ input.classList.add('bad'); input.focus(); return; }
+    if(!formatoValido(raw, q)){ input.classList.add('bad'); input.focus(); return; }
     input.classList.remove('bad');
     fatto = true;
     input.disabled = true; btn.disabled = true;
-    if(Number(raw) === q.corretta){
+    if(numeroGiusto(raw, q)){
       ctx.corretta(q.punti);
     } else {
-      ctx.errata(`<b>Non corretto.</b> Risposta giusta: <b class="res">${q.corretta}</b>.<br>${q.spiegazione || ''}`, true);
+      ctx.errata(`<b>Non corretto.</b> Risposta giusta: <b class="res">${U.num(q.corretta)}</b>.<br>${q.spiegazione || ''}`, true);
     }
   };
   btn.addEventListener('click', invia);
@@ -1253,16 +1262,16 @@ function mostraPasso(p, area, ctx){
   } else {
     area.innerHTML = `<div class="tf-question">${p.testo}</div>
       <div class="num-row">
-        <input class="nameinput numinput" id="gIn" inputmode="numeric" autocomplete="off" placeholder="Risposta">
+        <input class="nameinput numinput" id="gIn" inputmode="${p.decimali ? 'decimal' : 'numeric'}" autocomplete="off" placeholder="${p.decimali ? 'Es. 8,66' : 'Risposta'}">
         <button class="startbtn" id="gOk">Conferma</button>
       </div>`;
     const input = document.getElementById('gIn'), btn = document.getElementById('gOk');
     const invia = () => {
       const raw = input.value.trim();
-      if(!/^\d+$/.test(raw)){ input.classList.add('bad'); input.focus(); return; }
+      if(!formatoValido(raw, p)){ input.classList.add('bad'); input.focus(); return; }
       input.classList.remove('bad');
-      if(Number(raw) === p.corretta){
-        input.disabled = true; btn.disabled = true; p.rispostaTesto = '→ ' + p.corretta; ctx.corretta();
+      if(numeroGiusto(raw, p)){
+        input.disabled = true; btn.disabled = true; p.rispostaTesto = '→ ' + U.num(p.corretta); ctx.corretta();
       } else { ctx.errata(); input.select(); }
     };
     btn.addEventListener('click', invia);
