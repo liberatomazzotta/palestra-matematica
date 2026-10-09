@@ -24,6 +24,8 @@
  *   spiegazione: HTML mostrato in esercitazione dopo un errore (regola di teoria)
  *
  * Facoltativo, per "Guidami": guida: { teoria: 'HTML', generaEsercizio(indice) } (vedi README).
+ *   tipo 'frazione': corretta: [numeratore, denominatore]; ridotta: true = va data ai minimi termini
+ *        (altrimenti si accetta qualunque frazione equivalente)
  *   mostra(contenitore, ctx)   (solo personalizzata) disegna da sé la domanda e chiama
  *        ctx.corretta(punti)           quando l'alunno ha finito bene
  *        ctx.errata(html, avanza)      per un errore (avanza=true passa alla domanda dopo)
@@ -66,6 +68,8 @@ const U = {
     if(!keys.length) return '1';
     return keys.map(p => m[p] > 1 ? `${p}<sup>${m[p]}</sup>` : `${p}`).join(' × ');
   },
+  // frazione in colonna (numeratore sopra, denominatore sotto)
+  fr(n, d){ return `<span class="fr"><span>${n}</span><span>${d}</span></span>`; },
   esc(s){
     return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   }
@@ -830,6 +834,7 @@ function drawQuestion(){
   if(sk) sk.addEventListener('click', () => saltaDomanda(cur));
   if(q.tipo === 'scelta') mostraScelta(q, area, ctx);
   else if(q.tipo === 'numerica') mostraNumerica(q, area, ctx);
+  else if(q.tipo === 'frazione') mostraFrazione(q, area, ctx);
   else if(q.tipo === 'personalizzata') q.mostra(area, ctx);
 }
 
@@ -852,7 +857,7 @@ function saltaDomanda(cur){
   presSkip(q.categoria, q._topic);
   document.querySelectorAll('#qArea button, #qArea input').forEach(el => { el.disabled = true; });
   const sk = document.getElementById('skipBtn'); if(sk) sk.disabled = true;
-  const risposta = q.tipo === 'scelta' ? q.opzioni[q.corretta] : q.tipo === 'numerica' ? q.corretta : (q.soluzione || '');
+  const risposta = q.tipo === 'scelta' ? q.opzioni[q.corretta] : q.tipo === 'numerica' ? q.corretta : q.tipo === 'frazione' ? U.fr(q.corretta[0], q.corretta[1]) : (q.soluzione || '');
   showRule(`<b>Domanda saltata.</b>${risposta !== '' ? ` Risposta giusta: <b class="res">${risposta}</b>.` : ''} <span class="hint">Questo tipo di esercizio tornerà più avanti.</span>`, true);
 }
 
@@ -881,6 +886,7 @@ function makeCtx(cur){
         if(breve) html = breve;
         else if(q.tipo === 'scelta') html = `<b>Sbagliato.</b> Risposta giusta: <b class="res">${q.opzioni[q.corretta]}</b>.`;
         else if(q.tipo === 'numerica') html = `<b>Sbagliato.</b> Risposta giusta: <b class="res">${q.corretta}</b>.`;
+        else if(q.tipo === 'frazione') html = `<b>Sbagliato.</b> Risposta giusta: <b class="res">${U.fr(q.corretta[0], q.corretta[1])}</b>.`;
         else html = '<b>Sbagliato.</b> Riprova.';
       }
       state.score = Math.max(0, state.score - 3);
@@ -919,6 +925,43 @@ function mostraScelta(q, area, ctx){
     });
     grid.appendChild(b);
   });
+}
+
+// ---------- risposta a frazione: due caselle, numeratore sopra e denominatore sotto ----------
+function frazioneGiusta(n, d, corr, ridotta){
+  if(!(d > 0)) return false;
+  if(n * corr[1] !== d * corr[0]) return false;
+  return !ridotta || U.mcd(n, d) === 1;
+}
+function campoFrazione(idBase){
+  return `<div class="num-row fr-row">
+      <div class="fr-in"><input class="nameinput numinput" id="${idBase}N" inputmode="numeric" autocomplete="off" aria-label="Numeratore">
+      <span class="fr-bar"></span><input class="nameinput numinput" id="${idBase}D" inputmode="numeric" autocomplete="off" aria-label="Denominatore"></div>
+      <button class="startbtn" id="${idBase}Ok">Conferma</button></div>`;
+}
+function leggiFrazione(idBase){
+  const a = document.getElementById(idBase + 'N'), b = document.getElementById(idBase + 'D');
+  const ok1 = /^\d+$/.test(a.value.trim()), ok2 = /^\d+$/.test(b.value.trim()) && Number(b.value) > 0;
+  a.classList.toggle('bad', !ok1); b.classList.toggle('bad', !ok2);
+  if(!ok1){ a.focus(); return null; }
+  if(!ok2){ b.focus(); return null; }
+  return [Number(a.value), Number(b.value)];
+}
+function mostraFrazione(q, area, ctx){
+  area.innerHTML = `<div class="tf-question">${q.testo}</div>${campoFrazione('fq')}`;
+  const n = document.getElementById('fqN'), d = document.getElementById('fqD'), btn = document.getElementById('fqOk');
+  let fatto = false;
+  const invia = () => {
+    if(fatto) return;
+    const v = leggiFrazione('fq'); if(!v) return;
+    fatto = true; n.disabled = d.disabled = btn.disabled = true;
+    if(frazioneGiusta(v[0], v[1], q.corretta, q.ridotta)) ctx.corretta(q.punti);
+    else ctx.errata(`<b>Non corretto.</b> Risposta giusta: <b class="res">${U.fr(q.corretta[0], q.corretta[1])}</b>.<br>${q.spiegazione || ''}`, true);
+  };
+  btn.addEventListener('click', invia);
+  n.addEventListener('keydown', e => { if(e.key === 'Enter') d.focus(); });
+  d.addEventListener('keydown', e => { if(e.key === 'Enter') invia(); });
+  n.focus();
 }
 
 function mostraNumerica(q, area, ctx){
@@ -1087,6 +1130,20 @@ function mostraPasso(p, area, ctx){
       });
       grid.appendChild(b);
     });
+ } else if(p.tipo === 'frazione'){
+    area.innerHTML = `<div class="tf-question">${p.testo}</div>${campoFrazione('gf')}`;
+    const btn = document.getElementById('gfOk');
+    const invia = () => {
+      const v = leggiFrazione('gf'); if(!v) return;
+      if(frazioneGiusta(v[0], v[1], p.corretta, p.ridotta)){
+        document.getElementById('gfN').disabled = document.getElementById('gfD').disabled = btn.disabled = true;
+        p.rispostaTesto = '→ ' + U.fr(p.corretta[0], p.corretta[1]); ctx.corretta();
+      } else ctx.errata();
+    };
+    btn.addEventListener('click', invia);
+    document.getElementById('gfN').addEventListener('keydown', e => { if(e.key === 'Enter') document.getElementById('gfD').focus(); });
+    document.getElementById('gfD').addEventListener('keydown', e => { if(e.key === 'Enter') invia(); });
+    document.getElementById('gfN').focus();
   } else {
     area.innerHTML = `<div class="tf-question">${p.testo}</div>
       <div class="num-row">

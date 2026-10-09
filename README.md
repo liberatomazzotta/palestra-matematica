@@ -23,6 +23,7 @@ argomenti/
   fattori-primi.js    fattori primi e criteri di divisibilità
   mcd-mcm.js          MCD e mcm
   pitagora.js         Teorema di Pitagora (con figure disegnate in proporzione)
+  frazioni.js         Le frazioni e Qa (unità 5: operatore, equivalenti, confronto, numeri misti, retta, problemi)
 ```
 
 ## Messa online (una volta sola, circa 15 minuti)
@@ -130,6 +131,8 @@ guida: {
 Gli argomenti senza `guida` non compaiono nel menu di Guidami.
 
 ## Aggiungere un argomento
+
+Risposte a frazione: tipo `frazione` con `corretta: [numeratore, denominatore]` (e `ridotta: true` se va data ai minimi termini); l'alunno scrive numeratore e denominatore in due caselle.
 
 Nota: la riga `<script src="argomenti/....js">` va aggiunta sia in `index.html` sia in `mosaico.html` (alla vista alunni servono titoli e nomi delle categorie). Per il report, ogni domanda può indicare `categoria: 'id'` e l'argomento l'elenco `categorie: { id: 'Nome leggibile' }`; negli esercizi di Guidami la `categoria` va sull'esercizio.
 
