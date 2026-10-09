@@ -324,7 +324,7 @@ function renderReport(){
       <td>${r.deb.slice(0, 2).map(x => `<span class="wk">${esc(nomeCat(x.topic, x.cat))}</span>`).join(' ') || '<span class="dim">—</span>'}</td></tr>${det}`;
   }).join('');
   return {
-    bar: `<span><b>${rows.length}</b> alunni nel periodo</span>`,
+    bar: rows.length ? `<span><b>${rows.length}</b> ${rows.length === 1 ? 'alunno' : 'alunni'} nel periodo</span>` : '',
     body: filtri + sintesi + (rows.length
       ? `<table class="board-table rtable"><thead><tr><th>Alunno</th><th>Argomenti</th><th class="pts">Minuti</th><th class="pts">Risposte</th><th class="pts">Corrette</th><th class="pts">Saltate</th><th class="pts">Guidati</th><th>Punti deboli</th></tr></thead><tbody>${tr}</tbody></table>
          <p class="board-note">Clicca su un alunno per il dettaglio. Contano allenamento e Guidami (in Guidami il primo tentativo di ogni passo); la gara è esclusa.</p>`
