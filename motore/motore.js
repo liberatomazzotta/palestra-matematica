@@ -546,10 +546,10 @@ function presFlush(){
   const giorno = {};
   Object.keys(pres.delta).forEach(t => {
     const d = pres.delta[t], o = {};
-    ['ok', 'ko', 'sec', 'guidati'].forEach(k => { if(d[k]) o[k] = inc(d[k]); });
+    ['ok', 'ko', 'sec', 'guidati', 'skip'].forEach(k => { if(d[k]) o[k] = inc(d[k]); });
     const cat = {};
     Object.keys(d.cat).forEach(c => {
-      const x = {}; if(d.cat[c].ok) x.ok = inc(d.cat[c].ok); if(d.cat[c].ko) x.ko = inc(d.cat[c].ko);
+      const x = {}; ['ok', 'ko', 'skip'].forEach(k => { if(d.cat[c][k]) x[k] = inc(d.cat[c][k]); });
       cat[c] = x;
     });
     if(Object.keys(cat).length) o.cat = cat;
@@ -561,7 +561,7 @@ function presFlush(){
     name: pres.name, topic: pres.topicId, topicTitle: topicTitle(pres.topicId), level: lvl,
     correct: pres.correct, wrong: pres.wrong, streak: pres.streak, recent: pres.recent,
     startedAt: pres.startedAt, lastAnswerTs: pres.lastAnswerTs, lastTs: Date.now(), active: pres.active,
-    modo: pres.modo, passo: pres.passo, passiTot: pres.passiTot, esercizio: pres.esercizio
+    modo: pres.modo, passo: pres.passo, passiTot: pres.passiTot, esercizio: pres.esercizio, skipped: pres.skipped || 0
   }, extra), { merge: true }).catch(e => console.warn('presenza non scritta', e));
 }
 // Statistiche del giorno (per il report): presence.giorni.gAAAAMMGG.<argomento> = {ok, ko, sec, guidati, cat:{<categoria>:{ok,ko}}}
@@ -572,16 +572,28 @@ function chiaveGiorno(){
 }
 function presDelta(topic){
   const t = topic || listaTopic(pres.topicId)[0] || pres.topicId;
-  return pres.delta[t] = pres.delta[t] || { ok: 0, ko: 0, sec: 0, guidati: 0, cat: {} };
+  return pres.delta[t] = pres.delta[t] || { ok: 0, ko: 0, sec: 0, guidati: 0, skip: 0, cat: {} };
 }
 function presStart(name, topicId, modo){
   presStop(true);
   if(!db || !name) return;
   pres = { key: presKey(name), name: name.slice(0, 30), topicId, correct: 0, wrong: 0, streak: 0, recent: '',
     startedAt: Date.now(), lastAnswerTs: 0, active: true, lastWrite: 0, timer: null, beat: null,
-    modo: modo || 'pratica', passo: 0, passiTot: 0, esercizio: 0, delta: {}, lastFlushTs: 0 };
+    modo: modo || 'pratica', passo: 0, passiTot: 0, esercizio: 0, delta: {}, lastFlushTs: 0, skipped: 0 };
   pres.beat = setInterval(presFlush, PRES_BEAT_MS);
   presFlush();
+}
+// Domanda saltata: non è un errore, ma il docente la vede (report e tessera)
+function presSkip(categoria, topic){
+  if(!pres) return;
+  const dl = presDelta(topic);
+  dl.skip += 1;
+  if(categoria){ const c = dl.cat[categoria] = dl.cat[categoria] || { ok: 0, ko: 0 }; c.skip = (c.skip || 0) + 1; }
+  pres.skipped = (pres.skipped || 0) + 1;
+  pres.recent = (pres.recent + 's').slice(-6);
+  pres.lastAnswerTs = Date.now();
+  if(pres.timer) return;
+  pres.timer = setTimeout(presFlush, Math.max(0, PRES_THROTTLE_MS - (Date.now() - pres.lastWrite)));
 }
 function presAnswer(ok, categoria, topic){
   if(!pres) return;
@@ -667,7 +679,7 @@ function startPratica(scelta){
     fixedLevel: praticaLivello === 'auto' ? 0 : Number(praticaLivello),
     score: 0, askedCount: 0, correctCount: 0, wrongCount: 0,
     elapsedSeconds: 0, current: null, over: false,
-    ripasso: {}, superati: {}, normaliDaRipasso: 0
+    ripasso: {}, superati: {}, normaliDaRipasso: 0, saltiDiFila: 0, saltate: 0
   };
   setScoreVisible(true);
   updateScore();
@@ -707,7 +719,7 @@ function endPractice(){
       <b style="color:var(--yellow)">${m}:${s}</b>, con un'accuratezza del <b style="color:var(--yellow)">${acc}</b>.</p>
       ${(() => {
         const sup = Object.keys(state.superati || {}), aperti = Object.keys(state.ripasso || {});
-        return (sup.length ? `<p>Ripassati e superati: <b style="color:var(--green)">${sup.map(c => U.esc(nomeRipasso(c))).join(', ')}</b>.</p>` : '') +
+        return (state.saltate ? `<p>Domande saltate: <b style="color:var(--chalk)">${state.saltate}</b>.</p>` : '') + (sup.length ? `<p>Ripassati e superati: <b style="color:var(--green)">${sup.map(c => U.esc(nomeRipasso(c))).join(', ')}</b>.</p>` : '') +
           (aperti.length ? `<p>Da ripassare ancora: <b style="color:var(--pink)">${aperti.map(c => U.esc(nomeRipasso(c))).join(', ')}</b>.</p>` : '');
       })()}
       <p style="font-size:12px;opacity:0.75;">L'allenamento non entra in classifica: serve a prepararti alla gara.</p>
@@ -809,12 +821,39 @@ function drawQuestion(){
     ${cur.ripasso ? `<div class="rip-badge">Ripasso · ${U.esc(nomeRipasso(cur.ripasso))}</div>` : ''}
     <div class="instr">${q.istruzione || ''}</div>
     <div class="q-area" id="qArea"></div>
+    ${state.mode === 'pratica' ? `<div class="skiprow"><button class="skipbtn" id="skipBtn"${state.saltiDiFila >= MAX_SALTI ? ' disabled title="Hai già saltato 2 domande di fila: prova a rispondere"' : ''}>Salta →</button>
+      ${state.saltiDiFila >= MAX_SALTI ? '<span class="skipnote">Hai già saltato 2 domande di fila: prova a rispondere.</span>' : ''}</div>` : ''}
     <div class="rule-box" id="ruleBox" style="display:none;"></div>`;
   const area = document.getElementById('qArea');
   const ctx = makeCtx(cur);
+  const sk = document.getElementById('skipBtn');
+  if(sk) sk.addEventListener('click', () => saltaDomanda(cur));
   if(q.tipo === 'scelta') mostraScelta(q, area, ctx);
   else if(q.tipo === 'numerica') mostraNumerica(q, area, ctx);
   else if(q.tipo === 'personalizzata') q.mostra(area, ctx);
+}
+
+// ---------- Salta (solo allenamento) ----------
+// Nessun punto e nessuna penalità; il tipo saltato torna più avanti come ripasso; al massimo 2 salti di fila.
+const MAX_SALTI = 2;
+function saltaDomanda(cur){
+  if(!state || state.over || state.mode !== 'pratica' || cur.done || state.current !== cur) return;
+  if(state.saltiDiFila >= MAX_SALTI) return;
+  cur.done = true;
+  state.saltiDiFila += 1;
+  state.saltate += 1;
+  const q = cur.q;
+  if(q.categoria){
+    const key = (q._topic || listaTopic(state.topicId)[0]) + '|' + q.categoria;
+    const r = state.ripasso[key];
+    state.ripasso[key] = { mancano: RIPASSO_OK, errori: r ? r.errori : 0, ts: r ? r.ts : Date.now() };
+    state.normaliDaRipasso = 0;
+  }
+  presSkip(q.categoria, q._topic);
+  document.querySelectorAll('#qArea button, #qArea input').forEach(el => { el.disabled = true; });
+  const sk = document.getElementById('skipBtn'); if(sk) sk.disabled = true;
+  const risposta = q.tipo === 'scelta' ? q.opzioni[q.corretta] : q.tipo === 'numerica' ? q.corretta : (q.soluzione || '');
+  showRule(`<b>Domanda saltata.</b>${risposta !== '' ? ` Risposta giusta: <b class="res">${risposta}</b>.` : ''} <span class="hint">Questo tipo di esercizio tornerà più avanti.</span>`, true);
 }
 
 function makeCtx(cur){
@@ -828,7 +867,7 @@ function makeCtx(cur){
       const bonus = speedBonus(cur.startTs, cur.q.tempo);
       state.score += base + bonus;
       state.correctCount += 1;
-      if(mode === 'pratica') presAnswer(true, cur.q.categoria, cur.q._topic); else if(mode === 'gara') liveTouch();
+      if(mode === 'pratica'){ presAnswer(true, cur.q.categoria, cur.q._topic); state.saltiDiFila = 0; } else if(mode === 'gara') liveTouch();
       const esito = ripassoEsito(cur, true);
       updateScore();
       showBonus(esito === 'superato' ? `+${base + bonus} · ripasso superato!` : bonus > 0 ? `+${base + bonus} (bonus velocità)` : `+${base}`, false);
@@ -846,7 +885,7 @@ function makeCtx(cur){
       }
       state.score = Math.max(0, state.score - 3);
       state.wrongCount += 1;
-      if(mode === 'pratica') presAnswer(false, cur.q.categoria, cur.q._topic); else if(mode === 'gara') liveTouch();
+      if(mode === 'pratica'){ presAnswer(false, cur.q.categoria, cur.q._topic); state.saltiDiFila = 0; } else if(mode === 'gara') liveTouch();
       ripassoEsito(cur, false);
       updateScore();
       showBonus('-3', true);

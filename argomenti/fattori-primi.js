@@ -75,6 +75,7 @@ function scomposizione(livello){
   const fattori = Object.keys(U.fattorizza(originale)).reduce((a, p) => a + U.fattorizza(originale)[p], 0);
   return {
     tipo: 'personalizzata', punti: 12, tempo: 2.5 * fattori, categoria: 'scomp',
+    soluzione: `${originale} = ${U.fattoriHtml(U.fattorizza(originale))}`,
     mostra(cont, ctx){
       let resto = originale;
       const raccolti = [];

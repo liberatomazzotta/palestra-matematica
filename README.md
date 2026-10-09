@@ -84,6 +84,10 @@ In allenamento l'alunno lavora in autonomia: dopo un errore vede solo "Sbagliato
 
 Per un nuovo argomento basta che le domande abbiano `categoria`; facoltativamente l'argomento può offrire `generaDomandaDi(categoria, livello)` per generare subito una domanda di quel tipo (altrimenti il motore la cerca generando domande a caso).
 
+## Salta (solo allenamento)
+
+Sotto ogni domanda c'è un discreto **Salta →**: nessun punto e nessuna penalità, compare la risposta giusta e quel tipo di esercizio torna più avanti come ripasso. Al massimo 2 salti di fila (poi bisogna tentare una risposta). Il docente vede le domande saltate nel Report (colonna "Saltate", anche per tipo di esercizio e nel CSV) e sulla tessera ("Ha saltato N domande" da 3 in su; i salti appaiono come pallini vuoti). Non disponibile in gara né in Guidami.
+
 ## Errori frequenti e report per alunno
 
 - **Vista alunni → Esercitazione** (allenamento e Guidami): in alto la fascia "Errori più frequenti oggi" (tipi di esercizio sbagliati da più alunni collegati); sulla tessera compare "Punto debole: …" quando un alunno ha almeno 2 errori e almeno il 40% di errori su un tipo di esercizio.

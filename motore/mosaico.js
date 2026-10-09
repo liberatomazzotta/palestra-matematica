@@ -74,11 +74,11 @@ function sommaGiorni(d, giorni){
   Object.keys(g).forEach(k => {
     if(giorni && !giorni(k)) return;
     Object.keys(g[k] || {}).forEach(t => {
-      const src = g[k][t] || {}, dst = out[t] = out[t] || { ok: 0, ko: 0, sec: 0, guidati: 0, cat: {} };
-      ['ok', 'ko', 'sec', 'guidati'].forEach(f => { dst[f] += src[f] || 0; });
+      const src = g[k][t] || {}, dst = out[t] = out[t] || { ok: 0, ko: 0, sec: 0, guidati: 0, skip: 0, cat: {} };
+      ['ok', 'ko', 'sec', 'guidati', 'skip'].forEach(f => { dst[f] += src[f] || 0; });
       Object.keys(src.cat || {}).forEach(c => {
         const x = dst.cat[c] = dst.cat[c] || { ok: 0, ko: 0 };
-        x.ok += src.cat[c].ok || 0; x.ko += src.cat[c].ko || 0;
+        x.ok += src.cat[c].ok || 0; x.ko += src.cat[c].ko || 0; x.skip = (x.skip || 0) + (src.cat[c].skip || 0);
       });
     });
   });
@@ -114,7 +114,7 @@ function renderAllenamento(){
   const online = list.filter(x => x.a.online).length;
   const aiuto = list.filter(x => x.a.difficolta).length;
   const tiles = list.map(({ d, a }) => {
-    const dots = Array.from(a.rec).map(c => `<i class="${c === '1' ? 'ok' : 'ko'}"></i>`).join('') || '<span class="dim">—</span>';
+    const dots = Array.from(a.rec).map(c => `<i class="${c === '1' ? 'ok' : c === 's' ? 'sk' : 'ko'}"></i>`).join('') || '<span class="dim">—</span>';
     const stato = !a.online ? 'Non collegato'
       : a.difficolta ? 'Ha bisogno di aiuto'
       : a.fermo ? 'Fermo da ' + fa(now - (d.lastAnswerTs || d.startedAt)).replace(' fa', '')
@@ -127,6 +127,7 @@ function renderAllenamento(){
       <div class="mtopic">${esc(d.topicTitle || d.topic || '')}</div>
       <div class="macc">${a.acc === null ? '—' : a.acc + '%'}</div>
       <div class="mcnt"><b class="g">${d.correct || 0}</b> giuste · <b class="r">${d.wrong || 0}</b> errate</div>
+      ${!a.guida && (d.skipped || 0) >= 3 ? `<div class="mskip">Ha saltato ${d.skipped} domande</div>` : ''}
       ${a.guida ? `<div class="mpos">${d.passo > 0 ? 'Esercizio ' + (d.esercizio || 1) + ' · passo ' + d.passo + '/' + d.passiTot : 'Legge la teoria'}</div>` : ''}
       <div class="mdots">${dots}</div>
       ${deb ? `<div class="mweak">Punto debole: ${esc(nomeCat(deb.topic, deb.cat))}</div>` : ''}
@@ -268,10 +269,10 @@ function righeReport(){
   return (repDocs || []).map(d => {
     let stat = sommaGiorni(d, f);
     if(repArg){ const s = {}; if(stat[repArg]) s[repArg] = stat[repArg]; stat = s; }
-    const t = { ok: 0, ko: 0, sec: 0, guidati: 0 };
-    Object.values(stat).forEach(x => { t.ok += x.ok; t.ko += x.ko; t.sec += x.sec; t.guidati += x.guidati; });
+    const t = { ok: 0, ko: 0, sec: 0, guidati: 0, skip: 0 };
+    Object.values(stat).forEach(x => { t.ok += x.ok; t.ko += x.ko; t.sec += x.sec; t.guidati += x.guidati; t.skip += x.skip || 0; });
     return { name: d.name, stat, t, deb: deboli(stat) };
-  }).filter(r => r.t.ok + r.t.ko + r.t.guidati > 0)
+  }).filter(r => r.t.ok + r.t.ko + r.t.guidati + r.t.skip > 0)
     .sort((a, b) => String(a.name).localeCompare(String(b.name), 'it'));
 }
 function minuti(sec){ return sec < 60 ? (sec ? '< 1' : '0') : String(Math.round(sec / 60)); }
@@ -293,23 +294,24 @@ function renderReport(){
     `<span class="chip">${esc(nomeCat(f.topic, f.cat))} · <b>${f.alunni}</b> alunni, ${perc(f.ok, f.ko)} corrette</span>`).join('')}</div>` : '';
   const tr = rows.map((r, i) => {
     const aperto = repAperti.has(r.name);
-    const det = aperto ? `<tr class="rdet"><td colspan="7">${Object.keys(r.stat).map(t => {
+    const det = aperto ? `<tr class="rdet"><td colspan="8">${Object.keys(r.stat).map(t => {
       const cats = Object.keys(r.stat[t].cat).sort((a, b) => r.stat[t].cat[b].ko - r.stat[t].cat[a].ko);
       return `<div class="rdtitle">${esc(nomeArg(t))} · ${minuti(r.stat[t].sec)} min${r.stat[t].guidati ? ' · ' + r.stat[t].guidati + ' esercizi guidati' : ''}</div>` +
-        (cats.length ? `<table class="board-table rsub"><thead><tr><th>Tipo di esercizio</th><th class="pts">Giuste</th><th class="pts">Errate</th><th class="pts">Corrette</th></tr></thead><tbody>` +
-        cats.map(c => { const x = r.stat[t].cat[c]; return `<tr${x.ko >= 2 && x.ko / (x.ok + x.ko) >= 0.4 ? ' class="rweak"' : ''}><td>${esc(nomeCat(t, c))}</td><td class="pts">${x.ok}</td><td class="pts">${x.ko}</td><td class="pts">${perc(x.ok, x.ko)}</td></tr>`; }).join('') +
+        (cats.length ? `<table class="board-table rsub"><thead><tr><th>Tipo di esercizio</th><th class="pts">Giuste</th><th class="pts">Errate</th><th class="pts">Saltate</th><th class="pts">Corrette</th></tr></thead><tbody>` +
+        cats.map(c => { const x = r.stat[t].cat[c]; return `<tr${x.ko >= 2 && x.ko / (x.ok + x.ko) >= 0.4 ? ' class="rweak"' : ''}><td>${esc(nomeCat(t, c))}</td><td class="pts">${x.ok}</td><td class="pts">${x.ko}</td><td class="pts">${x.skip || '–'}</td><td class="pts">${perc(x.ok, x.ko)}</td></tr>`; }).join('') +
         '</tbody></table>' : '');
     }).join('')}</td></tr>` : '';
     return `<tr class="rrow" data-n="${esc(r.name)}"><td class="name">${aperto ? '▾' : '▸'} ${esc(r.name)}</td>
       <td>${Object.keys(r.stat).map(t => esc(nomeArg(t))).join(', ')}</td>
       <td class="pts">${minuti(r.t.sec)}</td><td class="pts">${r.t.ok + r.t.ko}</td><td class="pts">${perc(r.t.ok, r.t.ko)}</td>
+      <td class="pts">${r.t.skip || '–'}</td>
       <td class="pts">${r.t.guidati || '–'}</td>
       <td>${r.deb.slice(0, 2).map(x => `<span class="wk">${esc(nomeCat(x.topic, x.cat))}</span>`).join(' ') || '<span class="dim">—</span>'}</td></tr>${det}`;
   }).join('');
   return {
     bar: `<span><b>${rows.length}</b> alunni nel periodo</span>`,
     body: filtri + sintesi + (rows.length
-      ? `<table class="board-table rtable"><thead><tr><th>Alunno</th><th>Argomenti</th><th class="pts">Minuti</th><th class="pts">Risposte</th><th class="pts">Corrette</th><th class="pts">Guidati</th><th>Punti deboli</th></tr></thead><tbody>${tr}</tbody></table>
+      ? `<table class="board-table rtable"><thead><tr><th>Alunno</th><th>Argomenti</th><th class="pts">Minuti</th><th class="pts">Risposte</th><th class="pts">Corrette</th><th class="pts">Saltate</th><th class="pts">Guidati</th><th>Punti deboli</th></tr></thead><tbody>${tr}</tbody></table>
          <p class="board-note">Clicca su un alunno per il dettaglio. Contano allenamento e Guidami (in Guidami il primo tentativo di ogni passo); la gara è esclusa.</p>`
       : '<div class="empty-board">Nessuna attività nel periodo scelto.</div>')
   };
@@ -330,11 +332,11 @@ function bindReport(){
 }
 function scaricaCsv(){
   const cell = v => { const s = String(v == null ? '' : v); return /[;"\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
-  const righe = [['Alunno', 'Argomento', 'Tipo di esercizio', 'Giuste', 'Errate', '% corrette', 'Minuti', 'Esercizi guidati']];
+  const righe = [['Alunno', 'Argomento', 'Tipo di esercizio', 'Giuste', 'Errate', 'Saltate', '% corrette', 'Minuti', 'Esercizi guidati']];
   righeReport().forEach(r => Object.keys(r.stat).forEach(t => {
     const s = r.stat[t];
-    righe.push([r.name, nomeArg(t), 'TOTALE', s.ok, s.ko, perc(s.ok, s.ko), minuti(s.sec), s.guidati]);
-    Object.keys(s.cat).forEach(c => righe.push([r.name, nomeArg(t), nomeCat(t, c), s.cat[c].ok, s.cat[c].ko, perc(s.cat[c].ok, s.cat[c].ko), '', '']));
+    righe.push([r.name, nomeArg(t), 'TOTALE', s.ok, s.ko, s.skip || 0, perc(s.ok, s.ko), minuti(s.sec), s.guidati]);
+    Object.keys(s.cat).forEach(c => righe.push([r.name, nomeArg(t), nomeCat(t, c), s.cat[c].ok, s.cat[c].ko, s.cat[c].skip || 0, perc(s.cat[c].ok, s.cat[c].ko), '', '']));
   }));
   const csv = '\ufeff' + righe.map(r => r.map(cell).join(';')).join('\r\n');
   const a = document.createElement('a');
