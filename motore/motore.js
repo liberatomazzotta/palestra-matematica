@@ -112,6 +112,112 @@ function setScoreVisible(v){
   const el = document.querySelector('.top .stats');
   if(el) el.style.display = v ? '' : 'none';
 }
+// ---------- Calcolatrice a video (il docente la attiva dal cruscotto per Allenamento, Guidami, Gara) ----------
+let CALC = { allenamento: false, guidami: false, gara: false };
+let modoAttivo = null;      // 'allenamento' | 'guidami' | 'gara' | null (menu)
+const calcUI = { expr: '', fatto: false };
+function attivaCalc(modo){ modoAttivo = modo; aggiornaCalc(); }
+function aggiornaCalc(){
+  let fab = document.getElementById('calcFab');
+  const on = !!(modoAttivo && CALC[modoAttivo]);
+  if(!on){ if(fab) fab.hidden = true; const b = document.getElementById('calcBox'); if(b) b.hidden = true; return; }
+  if(!fab){ creaCalc(); fab = document.getElementById('calcFab'); }
+  fab.hidden = false;
+}
+function calcValuta(src){
+  // parser senza eval: + − × ÷, parentesi, √( ), ², virgola decimale, moltiplicazione sottintesa
+  const t = []; let i = 0;
+  while(i < src.length){
+    const ch = src[i];
+    if(/[0-9,]/.test(ch)){ let j = i; while(j < src.length && /[0-9,]/.test(src[j])) j++; const n = src.slice(i, j); if((n.match(/,/g) || []).length > 1) throw 0; t.push({ n: Number(n.replace(',', '.')) }); i = j; continue; }
+    if('+−×÷()√²'.indexOf(ch) > -1){ t.push({ o: ch }); i++; continue; }
+    throw 0;
+  }
+  let k = 0;
+  const peek = () => t[k], is = o => t[k] && t[k].o === o;
+  function espr(){ let v = termine(); while(is('+') || is('−')){ const o = t[k++].o; const w = termine(); v = o === '+' ? v + w : v - w; } return v; }
+  function termine(){
+    let v = fattore();
+    for(;;){
+      if(is('×') || is('÷')){ const o = t[k++].o; const w = fattore(); if(o === '÷' && w === 0) throw 'div0'; v = o === '×' ? v * w : v / w; }
+      else if(peek() && (peek().n !== undefined || is('(') || is('√'))){ v = v * fattore(); }
+      else return v;
+    }
+  }
+  function fattore(){
+    if(is('−')){ k++; return -fattore(); }
+    if(is('+')){ k++; return fattore(); }
+    let v;
+    if(is('√')){ k++; v = fattore(); if(v < 0) throw 0; v = Math.sqrt(v); }
+    else if(is('(')){ k++; v = espr(); if(is(')')) k++; }
+    else if(peek() && peek().n !== undefined){ v = t[k++].n; }
+    else throw 0;
+    while(is('²')){ k++; v = v * v; }
+    return v;
+  }
+  const r = espr();
+  if(k < t.length || !isFinite(r)) throw 0;
+  return r;
+}
+function calcFormato(x){
+  const r = Number(x.toPrecision(12));
+  return String(r).replace('.', ',');
+}
+function creaCalc(){
+  const fab = document.createElement('button');
+  fab.id = 'calcFab'; fab.className = 'calc-fab'; fab.type = 'button';
+  fab.innerHTML = '🧮<span>Calcolatrice</span>'; fab.setAttribute('aria-label', 'Apri la calcolatrice');
+  const box = document.createElement('div');
+  box.id = 'calcBox'; box.className = 'calc-box'; box.hidden = true; box.tabIndex = -1;
+  const tasti = [['C', 'calc-k fn'], ['⌫', 'calc-k fn'], ['(', 'calc-k fn'], [')', 'calc-k fn'], ['÷', 'calc-k op'],
+    ['7'], ['8'], ['9'], ['√', 'calc-k fn'], ['×', 'calc-k op'],
+    ['4'], ['5'], ['6'], ['x²', 'calc-k fn'], ['−', 'calc-k op'],
+    ['1'], ['2'], ['3'], [',', 'calc-k'], ['+', 'calc-k op'],
+    ['0', 'calc-k zero'], ['=', 'calc-k eq']];
+  box.innerHTML = `
+    <div class="calc-head"><b>Calcolatrice</b><button type="button" class="calc-x" id="calcChiudi" aria-label="Chiudi">✕</button></div>
+    <div class="calc-disp"><div class="calc-expr" id="calcExpr"></div><div class="calc-out" id="calcOut">0</div></div>
+    <div class="calc-keys">${tasti.map(([k, c]) => `<button type="button" class="${c || 'calc-k'}" data-k="${k}">${k}</button>`).join('')}</div>`;
+  document.body.appendChild(fab); document.body.appendChild(box);
+  fab.addEventListener('click', () => { box.hidden = !box.hidden; fab.classList.toggle('aperta', !box.hidden); });
+  document.getElementById('calcChiudi').addEventListener('click', () => { box.hidden = true; fab.classList.remove('aperta'); });
+  box.querySelector('.calc-keys').addEventListener('click', e => { const b = e.target.closest('[data-k]'); if(b) calcTasto(b.dataset.k); });
+  // tastiera solo quando la calcolatrice ha il focus (non disturba il campo della risposta)
+  box.addEventListener('keydown', e => {
+    const m = { '*': '×', 'x': '×', '/': '÷', '-': '−', '.': ',', 'Enter': '=', 'Backspace': '⌫', 'Escape': 'C', 'Delete': 'C' };
+    const k = m[e.key] || e.key;
+    if(/^[0-9]$/.test(k) || ['+', '−', '×', '÷', ',', '(', ')', '=', '⌫', 'C'].indexOf(k) > -1){ e.preventDefault(); e.stopPropagation(); calcTasto(k); }
+  });
+  calcMostra();
+}
+function calcTasto(k){
+  const u = calcUI;
+  if(k === 'C'){ u.expr = ''; u.fatto = false; u.prec = ''; return calcMostra(); }
+  if(k === '⌫'){ if(u.fatto){ u.fatto = false; u.prec = ''; } else u.expr = u.expr.slice(0, -1); return calcMostra(); }
+  if(k === '='){
+    if(!u.expr) return;
+    try{ const r = calcValuta(u.expr); u.prec = u.expr + ' ='; u.expr = calcFormato(r); u.fatto = true; }
+    catch(e){ u.prec = u.expr + ' ='; u.expr = ''; u.fatto = true; u.errore = true; }
+    return calcMostra();
+  }
+  const ins = k === 'x²' ? '²' : k === '√' ? '√(' : k;
+  if(u.fatto){
+    // dopo "=": un operatore continua dal risultato, una cifra inizia un nuovo calcolo
+    if(ins === '√(') u.expr = '√(' + u.expr + ')';
+    else if(/^[0-9,(]/.test(ins)) u.expr = '';
+    u.fatto = false; u.prec = '';
+    if(ins === '√(') return calcMostra();
+  }
+  if(u.expr.length < 60) u.expr += ins;
+  calcMostra();
+}
+function calcMostra(){
+  const e = document.getElementById('calcExpr'), o = document.getElementById('calcOut');
+  if(!e || !o) return;
+  e.textContent = calcUI.prec || '';
+  if(calcUI.errore){ o.textContent = 'Errore'; calcUI.errore = false; return; }
+  o.textContent = calcUI.expr || '0';
+}
 function updateScore(){ scoreEl.textContent = state ? state.score : 0; }
 function setModeLabel(t){ modeLabelEl.textContent = t || ''; }
 function nameKey(n){ return String(n || '').trim().replace(/\s+/g, ' ').toLowerCase(); }
@@ -121,6 +227,9 @@ function nameKey(n){ return String(n || '').trim().replace(/\s+/g, ' ').toLowerC
 const VUOTO_VIS = () => ({ nascosti: [], sezioniNascoste: {} });
 let VISIBILI = { allenamento: VUOTO_VIS(), guidami: VUOTO_VIS() };
 function impostaVisibili(d){
+  const c = (d && d.calcolatrice) || {};
+  CALC = { allenamento: !!c.allenamento, guidami: !!c.guidami, gara: !!c.gara };
+  if(typeof aggiornaCalc === 'function') aggiornaCalc();
   const base = { nascosti: (d && d.nascosti) || [], sezioniNascoste: (d && d.sezioniNascoste) || {} };
   VISIBILI = { allenamento: (d && d.allenamento) || base, guidami: (d && d.guidami) || base };
 }
@@ -194,6 +303,7 @@ function leaveTeacherFlow(){
 }
 function stopAll(){
   setFooterVisible(true);
+  attivaCalc(null);
   setScoreVisible(false);   // i punti si vedono solo in allenamento e in gara
   presStop();
   liveStop();
@@ -781,6 +891,7 @@ function startPratica(scelta, sez){
   stopAll();
   if(!topicIds.length) return;
   setFooterVisible(false);
+  attivaCalc('allenamento');
   state = {
     mode: 'pratica', topicId, topicIds, idx: {}, sezioni: sez, catPermesse: categoriePermesse(sez),
     fixedLevel: praticaLivello === 'auto' ? 0 : Number(praticaLivello),
@@ -1135,6 +1246,7 @@ function startGuida(scelta, nomeNoto, sez){
   setScoreVisible(false);
   setFooterVisible(false);
   presStart(nome, topicId, 'guida');
+  attivaCalc('guidami');
   sez = Object.assign({}, sez || {});
   topicIds.forEach(t => { if(!sez[t] && sezioniVisibili(t, 'guidami').length < sezioniDi(t).length) sez[t] = sezioniVisibili(t, 'guidami').map(x => x.id); });
   guidaCtx = { topicId, topicIds, indice: 0, nome, sezioni: sez, catPermesse: categoriePermesse(sez) };
@@ -1315,6 +1427,7 @@ function runKeyOf(i){ return i.sessionId + '#' + i.manche + '@' + i.startAt; }
 function entraInGara(name){
   stopAll();
   setFooterVisible(false);
+  attivaCalc('gara');
   if(!db){
     renderMsg('Gara non disponibile', 'La gara richiede la configurazione Firebase (config.js).', { err: true });
     return;
@@ -1753,6 +1866,7 @@ function renderTeacherPanel(){
         <button class="ttile" id="tileGara"><span class="ti">🏁</span><b>Gara</b><span>Argomento, numero e durata delle manches, tutti contro tutti o a squadre.</span></button>
         <a class="ttile" href="mosaico.html" target="_blank" rel="noopener"><span class="ti">📊</span><b>Vista alunni</b><span>Esercitazione, classifica live e report. Si apre in una nuova scheda.</span></a>
         <button class="ttile" id="tileArgomenti"><span class="ti">📚</span><b>Argomenti</b><span>Scegli argomenti e sezioni per Allenamento e Guidami.</span></button>
+        <button class="ttile" id="tileCalc"><span class="ti">🧮</span><b>Calcolatrice</b><span>Mostra o nascondi la calcolatrice a video in Allenamento, Guidami e Gara.</span></button>
         <button class="ttile" id="tileArchivio"><span class="ti">🗂️</span><b>Archivio gare</b><span>Tutte le gare svolte: classifiche, squadre, CSV.</span></button>
         <button class="ttile" id="tilePulizia"><span class="ti">🧹</span><b>Pulizia dati</b><span>Cancella i risultati delle gare e le presenze.</span></button>
       </div>
@@ -1765,6 +1879,37 @@ function renderTeacherPanel(){
   document.getElementById('tilePulizia').addEventListener('click', renderTeacherPulizia);
   document.getElementById('tileArchivio').addEventListener('click', renderTeacherArchivio);
   document.getElementById('tileArgomenti').addEventListener('click', renderTeacherArgomenti);
+  document.getElementById('tileCalc').addEventListener('click', renderTeacherCalc);
+}
+
+function renderTeacherCalc(){
+  stopAll();
+  state = null; updateScore(); renderHud('none'); setModeLabel('docente · calcolatrice');
+  const voci = [['allenamento', 'Allenamento'], ['guidami', 'Guidami'], ['gara', 'Gara']];
+  panel.innerHTML = `
+    <div class="center-screen has-back">
+      <button class="backlink" id="cBack" aria-label="Torna al cruscotto">← Cruscotto</button>
+      <h2>Calcolatrice</h2>
+      <div class="board-note">Se attiva, durante l'attività compare in basso a destra il pulsante 🧮 che apre una calcolatrice (quattro operazioni, parentesi, quadrato e radice quadrata). La scelta vale subito per tutti gli alunni.</div>
+      <div class="calc-sw">${voci.map(([k, l]) => `
+        <label class="calc-swrow"><span>${l}</span><input type="checkbox" class="calc-in" value="${k}" ${CALC[k] ? 'checked' : ''}><i class="sw"></i></label>`).join('')}
+      </div>
+      <div class="board-note" id="cNote"></div>
+    </div>`;
+  document.getElementById('cBack').addEventListener('click', renderTeacherPanel);
+  panel.querySelectorAll('.calc-in').forEach(c => c.addEventListener('change', async () => {
+    const note = document.getElementById('cNote');
+    const nuovo = Object.assign({}, CALC, { [c.value]: c.checked });
+    try{
+      const v = VISIBILI;
+      await db.collection('config').doc('argomenti').set({
+        nascosti: v.allenamento.nascosti || [], sezioniNascoste: v.allenamento.sezioniNascoste || {},
+        allenamento: v.allenamento, guidami: v.guidami, calcolatrice: nuovo, aggiornato: Date.now()
+      });
+      CALC = nuovo;
+      note.className = 'board-note'; note.textContent = `Calcolatrice ${c.checked ? 'attivata' : 'disattivata'} in ${voci.find(x => x[0] === c.value)[1]}.`;
+    }catch(e){ console.error(e); c.checked = !c.checked; note.className = 'board-note err'; note.textContent = 'Salvataggio non riuscito: controlla connessione e regole Firestore.'; }
+  }));
 }
 
 // ---------- impostazioni e squadre ----------
@@ -2145,7 +2290,7 @@ function renderTeacherArgomenti(){
     try{
       await db.collection('config').doc('argomenti').set({
         nascosti: bozza.allenamento.nascosti, sezioniNascoste: bozza.allenamento.sezioniNascoste,   // compatibilità
-        allenamento: bozza.allenamento, guidami: bozza.guidami, aggiornato: Date.now()
+        allenamento: bozza.allenamento, guidami: bozza.guidami, calcolatrice: CALC, aggiornato: Date.now()
       });
       VISIBILI = { allenamento: copia(bozza.allenamento), guidami: copia(bozza.guidami) };
       note.className = 'board-note'; note.textContent = 'Salvato: gli alunni vedono subito la nuova scelta.';
@@ -2340,5 +2485,5 @@ function avvia(){
   renderMenu();
 }
 
-window.Palestra = { registraArgomento, utils: U, avvia, _topics: TOPICS, _visibili: impostaVisibili };
+window.Palestra = { registraArgomento, utils: U, avvia, _topics: TOPICS, _visibili: impostaVisibili, _calc: calcValuta };
 })();

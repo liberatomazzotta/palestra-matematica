@@ -57,7 +57,9 @@ Se i Chromebook della scuola bloccano `github.io`, usa **Firebase Hosting** (`we
 4. A squadre: il docente assegna gli alunni con "+ Aggiungi alunno…" su ogni squadra (× per toglierli) oppure **Distribuisci a caso**. Ogni alunno vede la propria squadra. Punteggio di squadra = media dei punteggi dei componenti che hanno giocato.
 5. **Avvia la manche 1**, poi le successive; dopo l'ultima: **Classifica finale (podio)** (anche gli alunni hanno il pulsante).
 
-Il cruscotto ha cinque piastrelle: **Gara**, **Vista alunni** (si apre in una nuova scheda), **Argomenti**, **Archivio gare**, **Pulizia dati**.
+Il cruscotto ha sei piastrelle: **Gara**, **Vista alunni** (si apre in una nuova scheda), **Argomenti**, **Calcolatrice**, **Archivio gare**, **Pulizia dati**.
+
+**Calcolatrice** (cruscotto): tre interruttori (Allenamento, Guidami, Gara). Se attiva, durante l'attività compare in basso a destra il pulsante 🧮 con una calcolatrice a video (quattro operazioni, parentesi, x², √, virgola decimale). La scelta è salvata in `config/argomenti` (campo `calcolatrice`) e vale subito per tutti gli alunni.
 
 **Sezioni del libro**: ogni argomento segue l'indice del libro in adozione (La divisibilità 4.1–4.12, Le frazioni 5.1–5.11, Il teorema di Pitagora 2.1–2.12). Le sezioni si scelgono dal cruscotto: nella piastrella Argomenti (per Allenamento e Guidami) e nella piastrella Gara. I tipi di esercizio nel report e nel ripasso riportano il numero di sezione (es. "4.5 Scomposizione in fattori primi").
 
