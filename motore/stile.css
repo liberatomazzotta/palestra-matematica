@@ -617,3 +617,13 @@ select.mclasse{padding:5px 10px;}
 .va-sub{display:flex;flex-direction:column;gap:2px;padding:0 14px 12px 44px;}
 .va-sub .ts.dim{color:var(--chalk-dim);font-size:13px;padding:3px 0;}
 @media (max-width:520px){.va-meta{display:none;}}
+
+/* tabelle x/y e grafici affiancati negli esercizi */
+.qtab{border-collapse:collapse;margin:6px auto 12px;font:700 16px var(--font-ui);}
+.qtab th,.qtab td{border:1px solid var(--line);padding:6px 12px;text-align:center;min-width:34px;}
+.qtab th{color:var(--yellow);background:rgba(242,240,230,.05);}
+.qtab td.qtab-q{color:var(--pink);}
+.guide-theory .qtab{float:right;margin:0 0 8px 12px;font-size:14px;}
+.graf-row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin:4px 0 10px;}
+.graf-row .fig.mini-graf{width:150px;max-width:31%;margin:0;}
+@media (max-width:560px){.guide-theory .qtab{float:none;margin:0 auto 8px;}}
