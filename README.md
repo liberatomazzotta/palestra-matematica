@@ -20,6 +20,7 @@ config.js             configurazione Firebase  <-- unico file da modificare
 firestore.rules       regole di sicurezza del database
 motore/               menu, gara, podio, cruscotto docente
 argomenti/
+  catalogo.js         elenco di tutti gli argomenti del triennio per ambito (pronti e "in arrivo")
   divisibilita.js     La divisibilità (unità 4: 4.1–4.12)
   pitagora.js         Teorema di Pitagora (con figure disegnate in proporzione)
   frazioni.js         Le frazioni e Qa (unità 5: operatore, equivalenti, confronto, numeri misti, retta, problemi)
@@ -84,7 +85,7 @@ Il cruscotto ha le piastrelle **Classe**, **Gara**, **Vista alunni** (si apre in
 
 **Argomenti e sottoargomenti**: ogni argomento è diviso nei suoi sottoargomenti (quelli che si trovano in qualunque libro di testo, secondo le Indicazioni nazionali), mostrati senza numeri di capitolo o paragrafo. Si scelgono dal cruscotto: piastrella Argomenti (per Allenamento e Guidami) e piastrella Gara. Gli id interni dei sottoargomenti (es. `4.5`) servono solo al programma e non compaiono mai a schermo.
 
-**Argomenti** (cruscotto): il docente spunta argomenti e sezioni **separatamente per Allenamento e per Guidami** (schede in alto; il pulsante "Copia" riporta la scelta da una scheda all'altra). Gli alunni vedono solo quella scelta, in sola lettura. La scelta è salvata nella classe e la home degli alunni si aggiorna da sola. Per la gara il docente può scegliere qualunque sezione.
+**Argomenti** (cruscotto): catalogo completo del triennio diviso per ambito (Aritmetica, Algebra, Geometria, Dati previsioni e logica) e per anno, con ricerca ("mcm", "Pitagora"…) e argomenti a fisarmonica. Il docente **attiva** gli argomenti pronti e sceglie i sottoargomenti, **separatamente per Allenamento e per Guidami** ("Copia" riporta la scelta dall'altra scheda). Gli argomenti non ancora pronti compaiono come "in arrivo". Una classe nuova parte senza argomenti attivi. La scelta è salvata nella classe e la home degli alunni si aggiorna da sola.
 
 **Archivio gare**: ogni gara ha una scheda (`classi/{id}/gare`) con data, argomenti, manches giocate, squadre e classifica finale (individuale e a squadre), aggiornata alla fine di ogni manche e prima di creare una nuova gara. Dalla scheda: **Scarica CSV** o **Elimina dall'archivio**. La pulizia dei risultati non tocca l'archivio; c'è un comando apposito per svuotarlo.
 
@@ -158,6 +159,8 @@ Gli argomenti senza `guida` non compaiono nel menu di Guidami.
 Facoltativo: `guida.teoriaSezioni: { '4.7': 'HTML', … }` divide la teoria per sezione; in Guidami (e in "Rivedi la teoria") l'alunno vede solo la teoria delle sezioni scelte dal docente.
 
 ## Aggiungere un argomento
+
+Ogni argomento ha un `id` nel catalogo (`argomenti/catalogo.js`): il file dell'argomento deve registrarsi con **lo stesso id**; da quel momento nel cruscotto non è più "in arrivo" e i suoi sottoargomenti vengono dal file.
 
 Risposte con la virgola: tipo `numerica` con `decimali: 2` (e `tolleranza`, predefinita 0,01); l'alunno può scrivere 8,66 o 8.66.
 

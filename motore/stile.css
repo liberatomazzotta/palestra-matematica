@@ -594,3 +594,26 @@ a.backlink{text-decoration:none;display:inline-flex;align-items:center;}
 .tsec .levelrow{width:100%;}
 .mclasse{font:700 14px var(--font-ui);color:var(--chalk-dim);margin-top:2px;}
 select.mclasse{padding:5px 10px;}
+
+/* ---------- Argomenti (cruscotto): catalogo per ambiti, ricerca, fisarmonica ---------- */
+.va-page .va-cerca{width:100%;max-width:420px;margin:4px auto 0;text-align:left;}
+.va-amb{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin:2px 0 4px;}
+.va-ambbtn{border:1px solid var(--line);background:transparent;color:var(--chalk-dim);border-radius:20px;padding:6px 14px;font:700 13px var(--font-ui);cursor:pointer;}
+.va-ambbtn.on{background:var(--yellow);color:var(--board-dark);border-color:var(--yellow);}
+.va-ambbtn .va-n{display:inline-block;min-width:18px;padding:0 5px;margin-left:2px;border-radius:9px;background:var(--green);color:var(--board-dark);font-size:11px;line-height:18px;}
+.va-list{width:100%;text-align:left;display:flex;flex-direction:column;gap:6px;}
+.va-gruppo{font:700 12px var(--font-ui);letter-spacing:.06em;text-transform:uppercase;color:var(--chalk-dim);margin:10px 2px 0;}
+.va-arg{border:1px solid var(--line);border-radius:12px;background:var(--board-dark);}
+.va-arg.on{border-color:var(--green);}
+.va-arg.off .va-tit > span:first-child{color:var(--chalk-dim);}
+.va-head{display:flex;align-items:center;gap:10px;padding:0 0 0 14px;}
+.va-head input{width:20px;height:20px;accent-color:var(--blue);flex:none;cursor:pointer;}
+.va-dot{width:20px;height:20px;flex:none;border:2px dashed var(--line);border-radius:5px;}
+.va-tit{flex:1;display:flex;align-items:center;gap:10px;min-height:46px;padding:8px 14px 8px 0;background:none;border:0;color:var(--chalk);font:700 15px var(--font-ui);text-align:left;cursor:pointer;}
+.va-tit > span:first-child{flex:1;}
+.va-meta{font-size:12px;font-weight:600;color:var(--chalk-dim);white-space:nowrap;}
+.va-arg.on .va-meta{color:var(--green);}
+.va-car{color:var(--chalk-dim);font-size:12px;}
+.va-sub{display:flex;flex-direction:column;gap:2px;padding:0 14px 12px 44px;}
+.va-sub .ts.dim{color:var(--chalk-dim);font-size:13px;padding:3px 0;}
+@media (max-width:520px){.va-meta{display:none;}}

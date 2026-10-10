@@ -224,7 +224,14 @@ function nameKey(n){ return String(n || '').trim().replace(/\s+/g, ' ').toLowerC
 // ---------- sezioni del libro e argomenti visibili agli alunni ----------
 // Un argomento può dichiarare  sezioni: [{ id: '4.5', titolo: 'Scomposizione…', categorie: ['scomp'] }, …]
 // Scelta del docente, separata per Allenamento e Guidami (Firestore: config/argomenti). L'alunno non sceglie.
-const VUOTO_VIS = () => ({ nascosti: [], sezioniNascoste: {} });
+// Formato: { attivi: [id argomenti], sezioniNascoste: { id: [id sottoargomenti] } }.
+// Formato vecchio { nascosti: [...] }: sono attivi tutti gli argomenti pronti tranne quelli nascosti.
+const VUOTO_VIS = () => ({ attivi: [], sezioniNascoste: {} });
+function normVis(v){
+  if(!v) return VUOTO_VIS();
+  if(Array.isArray(v.attivi)) return { attivi: v.attivi.slice(), sezioniNascoste: v.sezioniNascoste || {} };
+  return { attivi: ORDER.filter(id => (v.nascosti || []).indexOf(id) < 0), sezioniNascoste: v.sezioniNascoste || {} };
+}
 let VISIBILI = { allenamento: VUOTO_VIS(), guidami: VUOTO_VIS() };
 function impostaVisibili(d){
   const c = (d && d.calcolatrice) || {};
@@ -233,10 +240,22 @@ function impostaVisibili(d){
   const base = { nascosti: (d && d.nascosti) || [], sezioniNascoste: (d && d.sezioniNascoste) || {} };
   VISIBILI = { allenamento: (d && d.allenamento) || base, guidami: (d && d.guidami) || base };
 }
-function vis(modo){ return VISIBILI[modo || 'allenamento'] || VUOTO_VIS(); }
+function vis(modo){ return normVis(VISIBILI[modo || 'allenamento']); }
+// ---------- catalogo (argomenti/catalogo.js): ambiti e ordine di programma ----------
+function catalogoAmbiti(){
+  const amb = ((window.CATALOGO && window.CATALOGO.ambiti) || []).map(a => ({ id: a.id, titolo: a.titolo, argomenti: a.argomenti.slice() }));
+  const noti = new Set([].concat(...amb.map(a => a.argomenti.map(x => x.id))));
+  const altri = ORDER.filter(id => !noti.has(id)).map(id => ({ id, titolo: TOPICS[id].titolo }));
+  if(altri.length) amb.push({ id: 'altri', titolo: 'Altri argomenti', argomenti: altri });
+  return amb;
+}
+function posCatalogo(id){
+  const ids = [].concat(...catalogoAmbiti().map(a => a.argomenti.map(x => x.id)));
+  const i = ids.indexOf(id); return i < 0 ? 9999 : i;
+}
 function sezioniDi(id){ return (TOPICS[id] && TOPICS[id].sezioni) || []; }
 function sezioniVisibili(id, modo){ const h = (vis(modo).sezioniNascoste || {})[id] || []; return sezioniDi(id).filter(x => h.indexOf(x.id) < 0); }
-function topicVisibile(id, modo){ return (vis(modo).nascosti || []).indexOf(id) < 0 && (!sezioniDi(id).length || sezioniVisibili(id, modo).length > 0); }
+function topicVisibile(id, modo){ return !!TOPICS[id] && vis(modo).attivi.indexOf(id) > -1 && (!sezioniDi(id).length || sezioniVisibili(id, modo).length > 0); }
 // Elenco in sola lettura di ciò che il docente ha scelto (macroargomenti e, sotto, le sezioni)
 function riepilogoArgomenti(ids, modo){
   if(!ids.length) return '<div class="empty-board">Il docente non ha ancora scelto gli argomenti.</div>';
@@ -1834,7 +1853,7 @@ function ridisegnaMenuSeAperto(){
 }
 async function salvaImpostazioni(patch){
   // VISIBILI e CALC sono sempre la versione più recente (aggiornati dal database e dai salvataggi locali)
-  const imp = Object.assign({}, (CLASSE_DATI && CLASSE_DATI.impostazioni) || {}, { allenamento: VISIBILI.allenamento, guidami: VISIBILI.guidami, calcolatrice: CALC }, patch);
+  const imp = Object.assign({}, (CLASSE_DATI && CLASSE_DATI.impostazioni) || {}, { allenamento: vis('allenamento'), guidami: vis('guidami'), calcolatrice: CALC }, patch);
   const prima = (CLASSE_DATI && CLASSE_DATI.impostazioni) || {};
   aggiornaClasseLocale({ impostazioni: imp });
   impostaVisibili(imp);
@@ -2140,7 +2159,7 @@ function renderNuovaClasse(){
     q('ncCrea').disabled = true; note.className = 'board-note'; note.textContent = 'Creo la classe…';
     try{
       const ref = db.collection('classi').doc();
-      const dati = { nome, proprietario: DOCENTE.email, docenti: [DOCENTE.email], alunni, aperta: true, codice: '', creata: Date.now(), impostazioni: {} };
+      const dati = { nome, proprietario: DOCENTE.email, docenti: [DOCENTE.email], alunni, aperta: true, codice: '', creata: Date.now(), impostazioni: { allenamento: VUOTO_VIS(), guidami: VUOTO_VIS() } };
       await ref.set(dati);
       const codice = await nuovoCodice(ref.id);
       await ref.update({ codice });
@@ -2668,75 +2687,117 @@ function garaPartecipanti(){
 }
 
 // ---------- Argomenti e sezioni per Allenamento e Guidami (li sceglie solo il docente) ----------
+const ANNI = { 1: 'Primo anno', 2: 'Secondo anno', 3: 'Terzo anno' };
+// per la ricerca: minuscole, senza accenti, punteggiatura e spazi ("m.c.m." = "mcm")
+const normTesto = t => String(t || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '');
 function renderTeacherArgomenti(){
   stopAll();
   state = null; updateScore(); renderHud('none'); setModeLabel('docente · argomenti');
-  const copia = v => ({ nascosti: (v.nascosti || []).slice(), sezioniNascoste: JSON.parse(JSON.stringify(v.sezioniNascoste || {})) });
+  const copia = v => ({ attivi: v.attivi.slice(), sezioniNascoste: JSON.parse(JSON.stringify(v.sezioniNascoste || {})) });
   const bozza = { allenamento: copia(vis('allenamento')), guidami: copia(vis('guidami')) };
-  let modo = 'allenamento';
+  const AMB = catalogoAmbiti();
+  let modo = 'allenamento', ambito = AMB.length ? AMB[0].id : '', cerca = '';
+  const aperti = new Set();
   panel.innerHTML = `
-    <div class="center-screen has-back">
+    <div class="center-screen has-back va-page">
       <button class="backlink" id="vaBack" aria-label="Torna al cruscotto">← Cruscotto</button>
       <h2>Argomenti</h2>${tagClasse()}
-      <div class="board-note">Scegli argomenti e sottoargomenti che gli alunni troveranno in Allenamento e in Guidami. Gli alunni li vedono ma non possono cambiarli. La gara si imposta dalla piastrella Gara.</div>
+      <div class="board-note">Attiva gli argomenti e i sottoargomenti che gli alunni troveranno in Allenamento e in Guidami. Gli alunni li vedono ma non possono cambiarli. La gara si imposta dalla piastrella Gara.</div>
       <div class="seg" role="tablist">
         <label><input type="radio" name="vaModo" value="allenamento" checked><span>Allenamento</span></label>
         <label><input type="radio" name="vaModo" value="guidami"><span>Guidami</span></label>
       </div>
-      <div class="tgara-body" id="vaBody"></div>
+      <input class="nameinput va-cerca" id="vaCerca" type="search" placeholder="Cerca un argomento…" autocomplete="off">
+      <div class="va-amb" id="vaAmb" role="tablist"></div>
+      <div class="va-list" id="vaBody"></div>
       <div class="trow">
         <button class="ghostbtn small" id="vaCopia"></button>
         <button class="startbtn" id="vaSalva">Salva</button>
       </div>
       <div class="board-note" id="vaNote"></div>
     </div>`;
-  const body = document.getElementById('vaBody');
-  const leggi = () => {   // dalla pagina alla bozza del modo corrente
-    const v = bozza[modo];
-    v.nascosti = Array.from(body.querySelectorAll('.va-t')).filter(t => !t.checked).map(t => t.value);
-    v.sezioniNascoste = {};
-    ORDER.forEach(id => {
-      const off = Array.from(body.querySelectorAll(`.va-s[data-t="${id}"]`)).filter(c => !c.checked).map(c => c.value);
-      if(off.length) v.sezioniNascoste[id] = off;
-    });
-  };
-  const disegna = () => {
-    const v = bozza[modo];
-    const ids = modo === 'guidami' ? ORDER.filter(id => TOPICS[id].guida) : ORDER;
-    body.innerHTML = ids.map(id => {
-      const secs = sezioniDi(id);
-      return `<div class="tcard va-card">
-        <label class="tp"><input type="checkbox" class="va-t" value="${U.esc(id)}"${v.nascosti.indexOf(id) < 0 ? ' checked' : ''}><span>${U.esc(TOPICS[id].titolo)}</span></label>
-        ${secs.length ? `<div class="va-secs">${secs.map(x => `<label class="ts"><input type="checkbox" class="va-s" data-t="${U.esc(id)}" value="${U.esc(x.id)}"${(v.sezioniNascoste[id] || []).indexOf(x.id) < 0 ? ' checked' : ''}><span>${U.esc(x.titolo)}</span></label>`).join('')}</div>` : ''}
-      </div>`;
+  const body = document.getElementById('vaBody'), ambBox = document.getElementById('vaAmb');
+  // un argomento si può attivare se è pronto (e, per Guidami, se ha il percorso guidato)
+  const pronto = id => !!TOPICS[id] && (modo !== 'guidami' || !!TOPICS[id].guida);
+  const titoloDi = x => TOPICS[x.id] ? TOPICS[x.id].titolo : x.titolo;
+  const sotto = x => TOPICS[x.id] ? sezioniDi(x.id).map(s => ({ id: s.id, titolo: s.titolo })) : (x.sotto || []).map(t => ({ titolo: t }));
+  const attivo = id => bozza[modo].attivi.indexOf(id) > -1;
+  const nascosteDi = id => bozza[modo].sezioniNascoste[id] || [];
+  function disegnaAmbiti(){
+    ambBox.innerHTML = AMB.map(a => {
+      const n = a.argomenti.filter(x => attivo(x.id) && pronto(x.id)).length;
+      return `<button type="button" class="va-ambbtn${a.id === ambito && !cerca ? ' on' : ''}" data-a="${U.esc(a.id)}">${U.esc(a.titolo)}${n ? ` <span class="va-n">${n}</span>` : ''}</button>`;
     }).join('');
-    // togliere tutte le sezioni = nascondere l'argomento; spuntare una sezione lo rende visibile
-    body.querySelectorAll('.va-s').forEach(c => c.addEventListener('change', () => {
-      const id = c.getAttribute('data-t'), t = body.querySelector(`.va-t[value="${id}"]`);
-      if(c.checked) t.checked = true;
-      else if(!body.querySelector(`.va-s[data-t="${id}"]:checked`)) t.checked = false;
-    }));
-    body.querySelectorAll('.va-t').forEach(t => t.addEventListener('change', () => {
-      if(t.checked && !body.querySelector(`.va-s[data-t="${t.value}"]:checked`)) body.querySelectorAll(`.va-s[data-t="${t.value}"]`).forEach(c => { c.checked = true; });
-    }));
+  }
+  function scheda(x){
+    const ok = pronto(x.id), on = ok && attivo(x.id), subs = sotto(x), aperto = aperti.has(x.id);
+    const viste = subs.filter(t => nascosteDi(x.id).indexOf(t.id) < 0).length;
+    const meta = !TOPICS[x.id] ? 'in arrivo' : !ok ? 'senza Guidami' : on ? (viste === subs.length ? 'tutti i sottoargomenti' : `${viste} di ${subs.length} sottoargomenti`) : '';
+    return `<div class="va-arg${ok ? '' : ' off'}${on ? ' on' : ''}">
+      <div class="va-head">
+        ${ok ? `<input type="checkbox" class="va-t" value="${U.esc(x.id)}" aria-label="Attiva ${U.esc(titoloDi(x))}"${on ? ' checked' : ''}>` : '<span class="va-dot" aria-hidden="true"></span>'}
+        <button type="button" class="va-tit" data-x="${U.esc(x.id)}" aria-expanded="${aperto}"><span>${U.esc(titoloDi(x))}</span><span class="va-meta">${meta}</span><span class="va-car">${aperto ? '▴' : '▾'}</span></button>
+      </div>
+      ${aperto ? `<div class="va-sub">${subs.length ? subs.map(t => ok
+        ? `<label class="ts"><input type="checkbox" class="va-s" data-t="${U.esc(x.id)}" value="${U.esc(t.id)}"${on && nascosteDi(x.id).indexOf(t.id) < 0 ? ' checked' : ''}><span>${U.esc(t.titolo)}</span></label>`
+        : `<div class="ts dim">${U.esc(t.titolo)}</div>`).join('') : '<div class="ts dim">Nessun sottoargomento.</div>'}</div>` : ''}
+    </div>`;
+  }
+  function disegna(){
+    disegnaAmbiti();
+    const q = normTesto(cerca.trim());
+    let gruppi;
+    if(q){
+      gruppi = AMB.map(a => ({ titolo: a.titolo, lista: a.argomenti.filter(x => normTesto(titoloDi(x)).indexOf(q) > -1 || sotto(x).some(t => normTesto(t.titolo).indexOf(q) > -1)) }))
+        .filter(g => g.lista.length);
+      gruppi.forEach(g => g.lista.forEach(x => { if(normTesto(titoloDi(x)).indexOf(q) < 0) aperti.add(x.id); }));   // trovato in un sottoargomento: si apre
+    } else {
+      const a = AMB.find(z => z.id === ambito) || AMB[0];
+      gruppi = [1, 2, 3, 0].map(n => ({ titolo: ANNI[n] || 'Altri', lista: a.argomenti.filter(x => (x.anno || 0) === n) })).filter(g => g.lista.length);
+    }
+    body.innerHTML = gruppi.length ? gruppi.map(g => `<div class="va-gruppo">${U.esc(g.titolo)}</div>${g.lista.map(scheda).join('')}`).join('')
+      : '<div class="empty-board">Nessun argomento trovato.</div>';
     document.getElementById('vaCopia').textContent = modo === 'guidami' ? 'Copia la scelta di Allenamento' : 'Copia la scelta di Guidami';
-  };
-  panel.querySelectorAll('input[name="vaModo"]').forEach(r => r.addEventListener('change', () => { leggi(); modo = r.value; disegna(); }));
+  }
+  const togli = (arr, v) => { const i = arr.indexOf(v); if(i > -1) arr.splice(i, 1); };
+  body.addEventListener('change', e => {
+    const v = bozza[modo], el = e.target;
+    if(el.classList.contains('va-t')){
+      const id = el.value;
+      if(el.checked){ if(!attivo(id)) v.attivi.push(id); if(sezioniDi(id).length && nascosteDi(id).length >= sezioniDi(id).length) delete v.sezioniNascoste[id]; }
+      else togli(v.attivi, id);
+    } else if(el.classList.contains('va-s')){
+      const id = el.getAttribute('data-t'), nas = (v.sezioniNascoste[id] = nascosteDi(id).slice());
+      if(el.checked){ togli(nas, el.value); if(!attivo(id)){ v.attivi.push(id); v.sezioniNascoste[id] = sezioniDi(id).map(t => t.id).filter(t => t !== el.value); } }
+      else if(nas.indexOf(el.value) < 0) nas.push(el.value);
+      if(!(v.sezioniNascoste[id] || []).length) delete v.sezioniNascoste[id];
+      if(sezioniDi(id).length && nascosteDi(id).length >= sezioniDi(id).length){ togli(v.attivi, id); delete v.sezioniNascoste[id]; }
+    } else return;
+    disegna();
+  });
+  body.addEventListener('click', e => {
+    const b = e.target.closest('.va-tit'); if(!b) return;
+    const id = b.getAttribute('data-x'); aperti.has(id) ? aperti.delete(id) : aperti.add(id); disegna();
+  });
+  ambBox.addEventListener('click', e => {
+    const b = e.target.closest('[data-a]'); if(!b) return;
+    ambito = b.getAttribute('data-a'); cerca = ''; document.getElementById('vaCerca').value = ''; disegna();
+  });
+  document.getElementById('vaCerca').addEventListener('input', e => { cerca = e.target.value; disegna(); });
+  panel.querySelectorAll('input[name="vaModo"]').forEach(r => r.addEventListener('change', () => { modo = r.value; disegna(); }));
   document.getElementById('vaCopia').addEventListener('click', () => {
     const altro = modo === 'guidami' ? 'allenamento' : 'guidami';
-    leggi(); bozza[altro] && (bozza[modo] = copia(bozza[altro])); disegna();
+    bozza[modo] = copia(bozza[altro]);
+    if(modo === 'guidami') bozza.guidami.attivi = bozza.guidami.attivi.filter(id => TOPICS[id] && TOPICS[id].guida);
+    disegna();
   });
   document.getElementById('vaBack').addEventListener('click', renderTeacherPanel);
   document.getElementById('vaSalva').addEventListener('click', async () => {
-    leggi();
     const note = document.getElementById('vaNote');
-    const nessuno = m => (m === 'guidami' ? ORDER.filter(id => TOPICS[id].guida) : ORDER).every(id => bozza[m].nascosti.indexOf(id) > -1);
-    if(nessuno('allenamento') || nessuno('guidami')){ note.className = 'board-note err'; note.textContent = 'Lascia visibile almeno un argomento sia in Allenamento sia in Guidami.'; return; }
     try{
-      await salvaImpostazioni({ allenamento: bozza.allenamento, guidami: bozza.guidami });
-      VISIBILI = { allenamento: copia(bozza.allenamento), guidami: copia(bozza.guidami) };
+      await salvaImpostazioni({ allenamento: copia(bozza.allenamento), guidami: copia(bozza.guidami) });
       note.className = 'board-note'; note.textContent = 'Salvato: gli alunni vedono subito la nuova scelta.';
-    }catch(e){ console.error(e); note.className = 'board-note err'; note.textContent = 'Salvataggio non riuscito: controlla connessione e regole Firestore.'; }
+    }catch(e){ console.error(e); note.className = 'board-note err'; note.textContent = 'Salvataggio non riuscito: controlla la connessione.'; }
   });
   disegna();
 }
@@ -2909,6 +2970,7 @@ function avvia(){
   modeLabelEl = document.getElementById('modeLabel');
   hudRow = document.getElementById('hudRow');
   initFirebase();
+  ORDER.sort((a, b) => posCatalogo(a) - posCatalogo(b));   // argomenti nell'ordine del programma
   // link "Cruscotto docente" nel footer
   const fd = document.getElementById('footDocente');
   if(fd) fd.addEventListener('click', e => { e.preventDefault(); renderTeacherGate(); });
