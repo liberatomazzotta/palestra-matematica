@@ -324,7 +324,7 @@ function esProblema(){
 }
 
 const SEZIONI = [
-  { id: 'Esp.', titolo: 'Esploro: frazioni di un rettangolo', categorie: ['figura'] },
+  { id: 'Esp.', titolo: 'Frazioni di una figura', categorie: ['figura'] },
   { id: '5.1', titolo: 'Le unità frazionarie - La frazione come operatore', categorie: ['operatore'] },
   { id: '5.2', titolo: 'La frazione come quoziente di due numeri naturali', categorie: ['quoziente'] },
   { id: '5.3', titolo: 'Classificare le frazioni', categorie: ['classifica'] },

@@ -243,7 +243,7 @@ function riepilogoArgomenti(ids, modo){
   return `<div class="levelrow">Argomenti scelti dal docente
     <div class="topicpick sola-lettura">${ids.map(id => {
       const viste = sezioniVisibili(id, modo);
-      const sotto = viste.length ? `<ul>${viste.map(x => `<li>${U.esc(x.id)} ${U.esc(x.titolo)}</li>`).join('')}</ul>` : '';
+      const sotto = viste.length ? `<ul>${viste.map(x => `<li>${U.esc(x.titolo)}</li>`).join('')}</ul>` : '';
       return `<div class="tp-ro"><b>${U.esc(TOPICS[id].titolo)}</b>${sotto}</div>`;
     }).join('')}</div></div>`;
 }
@@ -261,8 +261,7 @@ function categoriePermesse(sez){
 function nomeCategoria(topicId, c){
   const t = TOPICS[topicId];
   const nome = (t && t.categorie && t.categorie[c]) || c;
-  const sec = sezioniDi(topicId).find(x => x.categorie.indexOf(c) > -1);
-  return sec ? sec.id + ' ' + nome : nome;
+  return nome;
 }
 // Più argomenti insieme: gli id si uniscono con "+" (es. "fattori-primi+pitagora")
 function listaTopic(x){ return (Array.isArray(x) ? x : String(x || '').split('+')).filter(id => TOPICS[id]); }
@@ -518,7 +517,7 @@ function sceltaArgomenti(ids, idGruppo, opt){
     const scelteSez = sezPre[id] && sezPre[id].length ? sezPre[id] : secs.map(x => x.id);
     const lista = secs.length ? `
       <div class="tp-list" data-t="${U.esc(id)}" hidden>
-        ${secs.map(x => `<label class="ts"><input type="checkbox" class="ts-in" data-t="${U.esc(id)}" value="${U.esc(x.id)}"${scelteSez.indexOf(x.id) > -1 ? ' checked' : ''}><span><b>${U.esc(x.id)}</b> ${U.esc(x.titolo)}</span></label>`).join('')}
+        ${secs.map(x => `<label class="ts"><input type="checkbox" class="ts-in" data-t="${U.esc(id)}" value="${U.esc(x.id)}"${scelteSez.indexOf(x.id) > -1 ? ' checked' : ''}><span>${U.esc(x.titolo)}</span></label>`).join('')}
         <div class="ts-act"><button type="button" class="ghostbtn small" data-tutte="${U.esc(id)}">Tutte</button><button type="button" class="ghostbtn small" data-nessuna="${U.esc(id)}">Nessuna</button></div>
       </div>` : '';
     return `<div class="tp-wrap">
@@ -536,7 +535,7 @@ function attivaSceltaArgomenti(idGruppo){
   const etichetta = id => {
     const b = box.querySelector(`.tp-sez[data-t="${id}"]`); if(!b) return;
     const tutte = box.querySelectorAll(`.ts-in[data-t="${id}"]`), sc = box.querySelectorAll(`.ts-in[data-t="${id}"]:checked`);
-    b.textContent = (sc.length === tutte.length ? 'Tutte le sezioni' : `Sezioni: ${sc.length} di ${tutte.length}`) + (b.getAttribute('aria-expanded') === 'true' ? ' ▴' : ' ▾');
+    b.textContent = (sc.length === tutte.length ? 'Tutti i sottoargomenti' : `Sottoargomenti: ${sc.length} di ${tutte.length}`) + (b.getAttribute('aria-expanded') === 'true' ? ' ▴' : ' ▾');
   };
   box.querySelectorAll('.tp-sez').forEach(b => {
     const id = b.getAttribute('data-t');
@@ -574,7 +573,7 @@ function leggiSezioni(idGruppo, ids){
     const sc = Array.from(document.querySelectorAll(`#${idGruppo} .ts-in[data-t="${id}"]:checked`)).map(x => x.value);
     if(!sc.length){
       const n = document.getElementById(idGruppo + 'Note');
-      if(n){ n.className = 'board-note err'; n.textContent = `Scegli almeno una sezione di «${TOPICS[id].titolo}».`; }
+      if(n){ n.className = 'board-note err'; n.textContent = `Scegli almeno un sottoargomento di «${TOPICS[id].titolo}».`; }
       return null;
     }
     if(sc.length < sezioniDi(id).length) out[id] = sc;
@@ -1183,7 +1182,7 @@ function teoriaDi(id, secIds){
   if(!ts) return g.teoria;
   const lista = sezioniDi(id).filter(x => ts[x.id] && (!secIds || secIds.indexOf(x.id) > -1));
   if(!lista.length) return g.teoria;
-  return lista.map(x => `<div class="theory-sec">${U.esc(x.id)} ${U.esc(x.titolo)}</div>${typeof ts[x.id] === 'function' ? ts[x.id]() : ts[x.id]}`).join('');
+  return lista.map(x => `<div class="theory-sec">${U.esc(x.titolo)}</div>${typeof ts[x.id] === 'function' ? ts[x.id]() : ts[x.id]}`).join('');
 }
 function startGuida(scelta, nomeNoto, sez){
   const topicIds = listaTopic(scelta).filter(id => TOPICS[id].guida), topicId = topicIds.join('+');
@@ -2069,7 +2068,7 @@ function renderTeacherPanel(){
         <button class="ttile" id="tileClasse"><span class="ti">👥</span><b>Classe ${U.esc(cl.nome)}</b><span>Codice d'ingresso <b class="tcode">${U.esc(cl.codice || '—')}</b> · ${(cl.alunni || []).length} alunni${cl.aperta === false ? ' · ingressi chiusi' : ''}</span></button>
         <button class="ttile" id="tileGara"><span class="ti">🏁</span><b>Gara</b><span>Argomento, numero e durata delle manches, tutti contro tutti o a squadre.</span></button>
         <a class="ttile" href="mosaico.html?c=${encodeURIComponent(CLASSE)}" target="_blank" rel="noopener"><span class="ti">📊</span><b>Vista alunni</b><span>Esercitazione, report e classifica live. Si apre in una nuova scheda.</span></a>
-        <button class="ttile" id="tileArgomenti"><span class="ti">📚</span><b>Argomenti</b><span>Scegli argomenti e sezioni per Allenamento e Guidami.</span></button>
+        <button class="ttile" id="tileArgomenti"><span class="ti">📚</span><b>Argomenti</b><span>Scegli argomenti e sottoargomenti per Allenamento e Guidami.</span></button>
         <button class="ttile" id="tileCalc"><span class="ti">🧮</span><b>Calcolatrice</b><span>Mostra o nascondi la calcolatrice a video in Allenamento, Guidami e Gara.</span></button>
         <button class="ttile" id="tileArchivio"><span class="ti">🗂️</span><b>Archivio gare</b><span>Tutte le gare svolte: classifiche, squadre, CSV.</span></button>
         <button class="ttile" id="tilePulizia"><span class="ti">🧹</span><b>Pulizia dati</b><span>Cancella i risultati delle gare e le presenze.</span></button>
@@ -2516,7 +2515,7 @@ function garaGestione(body){
     <div class="tsec">
       <div class="tsec-head">
         <div><div class="tsec-title">${U.esc(topicTitle(d.topic))}</div>
-        <div class="tsum">${n} ${n === 1 ? 'manche' : 'manches'} da ${durTxt} · ${aSquadre(d) ? d.teams.length + ' squadre' : 'tutti contro tutti'}${d.sezioni && Object.keys(d.sezioni).length ? ' · sezioni ' + Object.keys(d.sezioni).map(t => d.sezioni[t].join(', ')).join('; ') : ''}</div></div>
+        <div class="tsum">${n} ${n === 1 ? 'manche' : 'manches'} da ${durTxt} · ${aSquadre(d) ? d.teams.length + ' squadre' : 'tutti contro tutti'}${d.sezioni && Object.keys(d.sezioni).length ? ' · solo alcuni sottoargomenti' : ''}</div></div>
         <button class="ghostbtn small" id="gNuova">Nuova gara</button>
       </div>
       <div class="gstato" id="gStato"></div>
@@ -2679,7 +2678,7 @@ function renderTeacherArgomenti(){
     <div class="center-screen has-back">
       <button class="backlink" id="vaBack" aria-label="Torna al cruscotto">← Cruscotto</button>
       <h2>Argomenti</h2>${tagClasse()}
-      <div class="board-note">Scegli argomenti e sezioni che gli alunni troveranno in Allenamento e in Guidami. Gli alunni li vedono ma non possono cambiarli. La gara si imposta dalla piastrella Gara.</div>
+      <div class="board-note">Scegli argomenti e sottoargomenti che gli alunni troveranno in Allenamento e in Guidami. Gli alunni li vedono ma non possono cambiarli. La gara si imposta dalla piastrella Gara.</div>
       <div class="seg" role="tablist">
         <label><input type="radio" name="vaModo" value="allenamento" checked><span>Allenamento</span></label>
         <label><input type="radio" name="vaModo" value="guidami"><span>Guidami</span></label>
@@ -2708,7 +2707,7 @@ function renderTeacherArgomenti(){
       const secs = sezioniDi(id);
       return `<div class="tcard va-card">
         <label class="tp"><input type="checkbox" class="va-t" value="${U.esc(id)}"${v.nascosti.indexOf(id) < 0 ? ' checked' : ''}><span>${U.esc(TOPICS[id].titolo)}</span></label>
-        ${secs.length ? `<div class="va-secs">${secs.map(x => `<label class="ts"><input type="checkbox" class="va-s" data-t="${U.esc(id)}" value="${U.esc(x.id)}"${(v.sezioniNascoste[id] || []).indexOf(x.id) < 0 ? ' checked' : ''}><span><b>${U.esc(x.id)}</b> ${U.esc(x.titolo)}</span></label>`).join('')}</div>` : ''}
+        ${secs.length ? `<div class="va-secs">${secs.map(x => `<label class="ts"><input type="checkbox" class="va-s" data-t="${U.esc(id)}" value="${U.esc(x.id)}"${(v.sezioniNascoste[id] || []).indexOf(x.id) < 0 ? ' checked' : ''}><span>${U.esc(x.titolo)}</span></label>`).join('')}</div>` : ''}
       </div>`;
     }).join('');
     // togliere tutte le sezioni = nascondere l'argomento; spuntare una sezione lo rende visibile

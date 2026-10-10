@@ -82,7 +82,7 @@ Il cruscotto ha le piastrelle **Classe**, **Gara**, **Vista alunni** (si apre in
 
 **Calcolatrice** (cruscotto): tre interruttori (Allenamento, Guidami, Gara). Se attiva, durante l'attività compare in basso a destra il pulsante 🧮 con una calcolatrice a video (quattro operazioni, parentesi, x², √, virgola decimale). La scelta è salvata nella classe (`classi/{id}`, campo `impostazioni`) e vale subito per tutti gli alunni della classe.
 
-**Sezioni del libro**: ogni argomento segue l'indice del libro in adozione (La divisibilità 4.1–4.12, Le frazioni 5.1–5.11, Il teorema di Pitagora 2.1–2.12). Le sezioni si scelgono dal cruscotto: nella piastrella Argomenti (per Allenamento e Guidami) e nella piastrella Gara. I tipi di esercizio nel report e nel ripasso riportano il numero di sezione (es. "4.5 Scomposizione in fattori primi").
+**Argomenti e sottoargomenti**: ogni argomento è diviso nei suoi sottoargomenti (quelli che si trovano in qualunque libro di testo, secondo le Indicazioni nazionali), mostrati senza numeri di capitolo o paragrafo. Si scelgono dal cruscotto: piastrella Argomenti (per Allenamento e Guidami) e piastrella Gara. Gli id interni dei sottoargomenti (es. `4.5`) servono solo al programma e non compaiono mai a schermo.
 
 **Argomenti** (cruscotto): il docente spunta argomenti e sezioni **separatamente per Allenamento e per Guidami** (schede in alto; il pulsante "Copia" riporta la scelta da una scheda all'altra). Gli alunni vedono solo quella scelta, in sola lettura. La scelta è salvata nella classe e la home degli alunni si aggiorna da sola. Per la gara il docente può scegliere qualunque sezione.
 
