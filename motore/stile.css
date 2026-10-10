@@ -340,7 +340,24 @@ body.mosaic-page .foot{padding:10px 0 20px;}
 @keyframes m-lift{0%,15%{transform:translateY(0);}45%,60%{transform:translateY(16px);}90%,100%{transform:translateY(0);}}
 @keyframes m-body{0%,15%{transform:translateY(0) scale(1,1);}45%,60%{transform:translateY(5px) scale(1.04,.95);}90%,100%{transform:translateY(0) scale(1,1);}}
 @keyframes m-sweat{0%,30%{opacity:0;transform:translateY(-4px);}55%{opacity:1;transform:translateY(0);}100%{opacity:0;transform:translateY(8px);}}
-@media (prefers-reduced-motion: reduce){.mascotte .m-lift,.mascotte .m-body,.mascotte .m-sweat,.mascotte .m-all{animation:none !important;}}
+.mascotte .m-body{transform-box:fill-box;transform-origin:50% 100%;}
+.mascotte .m-eye{transform-box:fill-box;transform-origin:50% 50%;}
+.mascotte.f-occhiolino .m-eye{animation:m-wink 1.1s ease-in-out 2;}
+.mascotte.f-occhiolino .m-all{animation:m-dance 1.1s ease-in-out 2;transform-origin:50% 100%;}
+.mascotte.f-flessioni .m-lift{animation:m-lift .9s ease-in-out 4;}
+.mascotte.f-flessioni .m-body{animation:m-body .9s ease-in-out 4;}
+.mascotte.f-flessioni .m-sweat{animation:m-sweat 1.8s ease-in-out 2;}
+.mascotte.f-equilibrio .m-bar{animation:m-tilt 2.6s ease-in-out 1;}
+.mascotte.f-equilibrio .m-all{animation:m-sway 2.6s ease-in-out 1;transform-origin:50% 100%;}
+.mascotte.f-muscoli .m-body{animation:m-puff 2s ease-in-out 1;}
+.mascotte.f-muscoli .m-lift{animation:m-up 2s ease-in-out 1;}
+.mascotte.f-scivolata .m-all{animation:m-slide 2.2s ease-in-out 1;}
+@keyframes m-wink{0%,30%,60%,100%{transform:scaleY(1);}40%,50%{transform:scaleY(.1);}}
+@keyframes m-tilt{0%,100%{transform:rotate(0);}20%{transform:rotate(14deg);}40%{transform:rotate(-12deg);}60%{transform:rotate(8deg);}80%{transform:rotate(-4deg);}}
+@keyframes m-sway{0%,100%{transform:rotate(0);}20%{transform:rotate(4deg);}40%{transform:rotate(-4deg);}60%{transform:rotate(2deg);}}
+@keyframes m-puff{0%,100%{transform:scale(1);}30%,70%{transform:scale(1.13);}}
+@keyframes m-slide{0%,100%{transform:translateX(0) rotate(0);}25%{transform:translateX(-22px) rotate(-6deg);}50%{transform:translateX(0) rotate(0);}75%{transform:translateX(22px) rotate(6deg);}}
+@media (prefers-reduced-motion: reduce){.mascotte .m-lift,.mascotte .m-body,.mascotte .m-sweat,.mascotte .m-all,.mascotte .m-bar,.mascotte .m-eye,.mascotte .m-stars{animation:none !important;}}
 
 .mascotte .m-stars{transform-box:fill-box;transform-origin:50% 50%;}
 .mascot-wrap{position:relative;display:flex;justify-content:center;width:fit-content;max-width:100%;margin:0 auto;}

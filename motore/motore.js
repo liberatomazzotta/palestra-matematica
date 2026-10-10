@@ -359,16 +359,6 @@ function renderMsg(titolo, corpo, opts){
   document.getElementById('msgBack').addEventListener('click', renderMenu);
 }
 
-const MASCOTTE_TIP = `
-  <div class="mascot-tip" id="mascotTip" hidden>
-    <div class="tip-title">Sfida la mascotte!</div>
-    <div class="tip-q" id="tipQ"></div>
-    <div class="tip-row">
-      <input class="nameinput numinput" id="tipIn" inputmode="numeric" autocomplete="off" placeholder="?">
-      <button class="startbtn small" id="tipOk">Ok</button>
-    </div>
-    <div class="tip-msg" id="tipMsg"></div>
-  </div>`;
 const MASCOTTE = `
 <svg class="mascotte lift" id="mascotSvg" tabindex="0" viewBox="0 0 260 170" role="img" aria-label="La mascotte della Palestra Matematica solleva un bilanciere con la radice quadrata e il pi greco">
   <g fill="none" stroke-linecap="round" stroke-linejoin="round">
@@ -405,7 +395,7 @@ const MASCOTTE = `
     <path d="M167 98 l12 -6 M167 98 l13 4" stroke="var(--pink)" stroke-width="4"/>
     <!-- occhi, guance, sorriso -->
     <circle cx="117" cy="110" r="4.5" fill="var(--board)" stroke="none"/>
-    <circle cx="143" cy="110" r="4.5" fill="var(--board)" stroke="none"/>
+    <circle class="m-eye" cx="143" cy="110" r="4.5" fill="var(--board)" stroke="none"/>
     <circle cx="108" cy="122" r="4" fill="var(--pink)" stroke="none" opacity=".55"/>
     <circle cx="152" cy="122" r="4" fill="var(--pink)" stroke="none" opacity=".55"/>
     <path d="M118 124 Q130 136 142 124" stroke="var(--board)" stroke-width="3.5"/>
@@ -418,75 +408,35 @@ const MASCOTTE = `
     </g>
   </g>
 </svg>`;
-// ---------- Mascotte: enigma nel fumetto, festa se la risposta è giusta ----------
-function enigmaMascotte(){
-  const r = U.rand;
-  const tipi = [
-    () => { const n = r(2, 12), a = r(1, 9); return [`Penso un numero, lo raddoppio e aggiungo ${a}: ottengo ${2 * n + a}. Che numero ho pensato?`, n]; },
-    () => { const k = r(2, 12); return [`Quanto fa √${k * k}?`, k]; },
-    () => { for(;;){ const g = r(2, 6), x = r(2, 5), y = r(2, 5); if(x !== y && U.mcd(x, y) === 1) return [`Qual è il MCD di ${g * x} e ${g * y}?`, g]; } },
-    () => { const n = U.pick([10, 20, 30]); return [`Quanti numeri primi ci sono tra 1 e ${n}?`, { 10: 4, 20: 8, 30: 10 }[n]]; },
-    () => { const a = r(1, 9), d = r(2, 9); return [`Completa la sequenza: ${a}, ${a + d}, ${a + 2 * d}, ${a + 3 * d}, …`, a + 4 * d]; },
-    () => { const l = r(3, 15); return [`Un quadrato ha il perimetro di ${4 * l} cm. Quanti cm misura il lato?`, l]; },
-    () => { const n = r(3, 9); return [`Quanto fa ${n}² − ${n}?`, n * n - n]; },
-    () => { const a = r(2, 9), b = r(2, 9); return [`Qual è il mcm di ${a} e ${a * b}?`, a * b]; }
-  ];
-  const t = U.pick(tipi)();
-  return { testo: t[0], risposta: t[1] };
-}
-// Una festa diversa per ogni enigma risolto: si usano tutte (in ordine casuale) prima di ripeterne una
-const FESTE = ['f-salti', 'f-piroetta', 'f-girabilanciere', 'f-ballo', 'f-lancio', 'f-molla'];
-let codaFeste = [];
+// ---------- Mascotte: animazioni che si alternano (all'apertura della pagina e poi ogni tanto) ----------
+// Si usano tutte (in ordine casuale) prima di ripeterne una. Un clic (o Invio) sulla mascotte ne fa partire un'altra.
+const FESTE = ['lift', 'f-salti', 'f-piroetta', 'f-girabilanciere', 'f-ballo', 'f-lancio', 'f-molla',
+  'f-occhiolino', 'f-flessioni', 'f-equilibrio', 'f-muscoli', 'f-scivolata'];
+const MASCOTTE_OGNI_MS = 15000;
+let codaFeste = [], ultimaFesta = null, timerMascotte = null;
 function prossimaFesta(){
-  if(!codaFeste.length) codaFeste = U.shuffle ? U.shuffle(FESTE.slice()) : FESTE.slice().sort(() => Math.random() - 0.5);
-  return codaFeste.shift();
+  if(!codaFeste.length){
+    codaFeste = FESTE.slice().sort(() => Math.random() - 0.5);
+    if(codaFeste[0] === ultimaFesta) codaFeste.push(codaFeste.shift());   // mai la stessa due volte di fila
+  }
+  return (ultimaFesta = codaFeste.shift());
 }
 function attivaMascotte(){
-  const wrap = document.getElementById('mascotWrap');
   const svg = document.getElementById('mascotSvg');
-  const tip = document.getElementById('mascotTip');
-  const inp = document.getElementById('tipIn'), ok = document.getElementById('tipOk');
-  const qEl = document.getElementById('tipQ'), msg = document.getElementById('tipMsg');
-  let enigma = null, tentativi = 0, chiudi = null;
-  function nuovo(){ enigma = enigmaMascotte(); tentativi = 0; qEl.textContent = enigma.testo; msg.textContent = ''; msg.className = 'tip-msg'; inp.value = ''; inp.disabled = false; ok.disabled = false; }
-  function apri(){ clearTimeout(chiudi); if(!enigma) nuovo(); tip.hidden = false; }
-  function chiudiPoi(ms){ clearTimeout(chiudi); chiudi = setTimeout(() => { if(document.activeElement !== inp) tip.hidden = true; }, ms); }
-  function festa(){
+  if(!svg) return;
+  clearInterval(timerMascotte);
+  const gioca = () => {
     const v = prossimaFesta();
     svg.classList.remove('lift', 'party', ...FESTE); void svg.getBoundingClientRect();
-    svg.classList.add('party', v);
-  }
-  function verifica(){
-    const v = inp.value.trim();
-    if(!/^\d+$/.test(v)){ inp.focus(); return; }
-    if(Number(v) === enigma.risposta){
-      msg.textContent = 'Esatto! Guarda come festeggia!'; msg.className = 'tip-msg ok';
-      inp.disabled = true; ok.disabled = true;
-      festa();
-      setTimeout(() => { inp.blur(); tip.hidden = true; enigma = null; }, 1600);
-    } else {
-      tentativi += 1;
-      if(tentativi >= 3){
-        msg.textContent = `La risposta era ${enigma.risposta}. Proviamo con un altro!`; msg.className = 'tip-msg ko';
-        setTimeout(() => { nuovo(); inp.focus(); }, 2200);
-      } else {
-        msg.textContent = 'Non proprio… riprova!'; msg.className = 'tip-msg ko';
-        inp.select();
-      }
-    }
-  }
-  // si apre solo se il mouse si muove davvero sopra la mascotte (non quando la home ricompare sotto il puntatore fermo)
-  let mossoDopoApertura = false;
-  const segnaMovimento = () => { mossoDopoApertura = true; };
-  setTimeout(() => document.addEventListener('pointermove', segnaMovimento, { once: true }), 300);
-  svg.addEventListener('mouseenter', () => { if(mossoDopoApertura) apri(); });
-  svg.addEventListener('mousemove', () => { if(mossoDopoApertura && tip.hidden && !enigma) apri(); });
-  wrap.addEventListener('mouseleave', () => chiudiPoi(500));
-  svg.addEventListener('click', () => { if(tip.hidden){ apri(); inp.focus(); } else tip.hidden = true; });
-  svg.addEventListener('keydown', e => { if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); apri(); inp.focus(); } });
-  inp.addEventListener('keydown', e => { if(e.key === 'Enter') verifica(); if(e.key === 'Escape'){ inp.blur(); tip.hidden = true; } });
-  inp.addEventListener('blur', () => { if(!wrap.matches(':hover')) chiudiPoi(300); });
-  ok.addEventListener('click', verifica);
+    svg.classList.add(v === 'lift' ? 'lift' : 'party', v);
+  };
+  gioca();
+  timerMascotte = setInterval(() => {
+    if(!document.body.contains(svg)){ clearInterval(timerMascotte); return; }   // pagina cambiata
+    if(!document.hidden) gioca();
+  }, MASCOTTE_OGNI_MS);
+  svg.addEventListener('click', gioca);
+  svg.addEventListener('keydown', e => { if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); gioca(); } });
 }
 
 // ---------- Mascotte nelle pagine Guidami / Allenamento / Gara (solo animazione, 2 volte) ----------
@@ -692,7 +642,7 @@ function drawMenu(){
       <button class="startbtn" id="joinGaraBtn" ${configured() ? '' : 'disabled'}>Entra in gara</button>`;
   } else {
     corpo = `
-      <div class="mascot-wrap" id="mascotWrap">${MASCOTTE}${MASCOTTE_TIP}</div>
+      <div class="mascot-wrap" id="mascotWrap">${MASCOTTE}</div>
       ${ALUNNO ? `<div class="chi-sono">Ciao <b>${U.esc(ALUNNO.nome)}</b> · classe ${U.esc(nomeClasse() || ALUNNO.classe || '')} · <button class="linkbtn" id="nonSonoIo">Non sei tu?</button></div>` : ''}
       <div class="section-title">Cosa vuoi fare oggi?</div>
       <div class="board-note">Decidi come migliorare: esercizi guidati, allenamento o gara?</div>
@@ -1924,7 +1874,7 @@ function renderIngresso(msg){
   menuView = 'home';
   panel.innerHTML = `
     <div class="menu ingresso">
-      <div class="mascot-wrap" id="mascotWrap">${MASCOTTE}${MASCOTTE_TIP}</div>
+      <div class="mascot-wrap" id="mascotWrap">${MASCOTTE}</div>
       <div class="section-title">Entra nella tua classe</div>
       <div class="board-note">Scrivi il codice che ti ha dato il docente.</div>
       <input class="nameinput codice-in" id="codiceInput" maxlength="10" placeholder="Codice classe" autocomplete="off" autocapitalize="characters" spellcheck="false">
